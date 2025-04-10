@@ -22,7 +22,7 @@ except ImportError:
     FLASH_ATTN_AVAILABLE = False
 
 try:
-    from liger_kernel.nn import (
+    from liger_kernel.transformers import (
         LigerCrossEntropyLoss,
         liger_rotary_pos_emb,
     )
