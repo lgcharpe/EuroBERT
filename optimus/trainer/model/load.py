@@ -12,6 +12,7 @@ from transformers import (
 from optimus.trainer.configuration.configs import Config
 from optimus.trainer.model.encoder.bert import Bert, bert_config
 from optimus.trainer.model.encoder.eurobert import EuroBERT, eurobert_config
+from optimus.trainer.model.sl_model.sl_model import SLModel, sl_model_config
 from optimus.trainer.model.tools import ModelTools
 
 
@@ -85,6 +86,11 @@ def load_model(config: Config):
                 config.model, eurobert_config[config.model.model_size]
             )
             model = EuroBERT(dict_config_model)
+        elif config.model.model_name == "sl_model":
+            dict_config_model = update_config(
+                config.model, sl_model_config[config.model.model_size]
+            )
+            model = SLModel(dict_config_model)
         else:
             raise ValueError(f"Model name {config.model.model_name} is not supported.")
         config.update_config(**dict_config_model)

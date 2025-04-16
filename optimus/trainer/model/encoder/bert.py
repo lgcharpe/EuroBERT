@@ -50,7 +50,7 @@ class BertEmbedding(nn.Module):
         return embedding
 
 
-class Bert(model.TransformerEncoder):
+class Bert(model.TransformerModel):
     def __init__(self, config=bert_config["280m"]):
         super().__init__(
             embedding=BertEmbedding(config),

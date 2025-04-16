@@ -25,24 +25,30 @@ class Data:
         self.main_process = config.is_main_process
         self.tokenizer = tokenizer
         self.hf_model = config.model.huggingface_id is not None
+        self.causal = config.model.causal
 
-        assert (
-            config.train.mask_probability
-            + config.train.random_probability
-            + config.train.original_probability
-            == 1.0
-        ), "The sum of masking probabilities must be equal to 1.0."
+        if not config.model.causal:
+            assert (
+                config.train.mask_probability
+                + config.train.random_probability
+                + config.train.original_probability
+                == 1.0
+            ), "The sum of masking probabilities must be equal to 1.0."
+            self.mlm_probability = config.train.mlm_probability
+            self.mask_probability = config.train.mask_probability
+            self.random_probability = (
+                config.train.random_probability / (1 - self.mask_probability)
+                if self.mask_probability < 1.0
+                else 0.0
+            )
+            config.log_print(
+                f"Masking probabilities: MLM={config.train.mlm_probability}, Mask={config.train.mask_probability}, Random={config.train.random_probability}, Original={config.train.original_probability}"
+            )
+
         self.num_canonical_nodes = (
             config.system.num_nodes
             if config.data.num_canonical_nodes <= 0
             else config.data.num_canonical_nodes
-        )
-        self.mlm_probability = config.train.mlm_probability
-        self.mask_probability = config.train.mask_probability
-        self.random_probability = (
-            config.train.random_probability / (1 - self.mask_probability)
-            if self.mask_probability < 1.0
-            else 0.0
         )
 
         if config.data.num_canonical_nodes <= 0:
@@ -64,10 +70,6 @@ class Data:
         self.eval_dataloader = None
         config.log_print(
             "Train dataloader created successfully:", len(self.train_dataloader)
-        )
-
-        config.log_print(
-            f"Masking probabilities: MLM={config.train.mlm_probability}, Mask={config.train.mask_probability}, Random={config.train.random_probability}, Original={config.train.original_probability}"
         )
         config.log_print(f"Number of canonical nodes: {self.num_canonical_nodes}")
 
@@ -94,19 +96,31 @@ class Data:
         Returns:
             Dataset: Dataset object containing the data.
         """
-        return MaskingDataset(
-            streams=streams,
-            shuffle=False if eval else self.data_config.shuffle,
-            shuffle_seed=9176 if eval else self.data_config.seed,
-            batch_size=self.data_config.batch_size,
-            num_canonical_nodes=self.num_canonical_nodes,
-            shuffle_block_size=int(max(4000000 // self.num_canonical_nodes, 1 << 18)),
-            predownload=self.data_config.predownload * self.data_config.batch_size,
-            mlm_probability=self.mlm_probability,
-            mask_probability=self.mask_probability,
-            random_probability=self.random_probability,
-            tokenizer=self.tokenizer,
-        )
+        
+        if self.causal:
+            return CausalDataset(
+                streams=streams,
+                shuffle=False if eval else self.data_config.shuffle,
+                shuffle_seed=9176 if eval else self.data_config.seed,
+                batch_size=self.data_config.batch_size,
+                num_canonical_nodes=self.num_canonical_nodes,
+                shuffle_block_size=int(max(4000000 // self.num_canonical_nodes, 1 << 18)),
+                predownload=self.data_config.predownload * self.data_config.batch_size,
+            )
+        else:
+            return MaskingDataset(
+                streams=streams,
+                shuffle=False if eval else self.data_config.shuffle,
+                shuffle_seed=9176 if eval else self.data_config.seed,
+                batch_size=self.data_config.batch_size,
+                num_canonical_nodes=self.num_canonical_nodes,
+                shuffle_block_size=int(max(4000000 // self.num_canonical_nodes, 1 << 18)),
+                predownload=self.data_config.predownload * self.data_config.batch_size,
+                mlm_probability=self.mlm_probability,
+                mask_probability=self.mask_probability,
+                random_probability=self.random_probability,
+                tokenizer=self.tokenizer,
+            )
 
     def __create_dataloader(self, dataset: StreamingDataset) -> StreamingDataLoader:
         """
@@ -182,10 +196,10 @@ class Data:
             "max_seqlen": lengths.max().item(),
         }
 
-    # ----------------------
-    # Masking Dataset
-    # ----------------------
 
+# ----------------------
+# Masking Dataset
+# ----------------------
 
 class MaskingDataset(StreamingDataset):
     def __init__(
@@ -259,12 +273,30 @@ class MaskingDataset(StreamingDataset):
 
         # The rest of the time we keep the masked input tokens unchanged
         return inputs, labels
+    
+
+# ----------------------
+# Causal Dataset
+# ----------------------
+
+class CausalDataset(StreamingDataset):    
+    def __init__(
+        self,
+        *args,
+        **kwargs,
+    ):
+        super(CausalDataset, self).__init__(*args, **kwargs)
+
+    def __getitem__(self, index):
+        item = super().__getitem__(index)
+        inputs, labels = np.copy(item["tokens"]), np.copy(item["tokens"])
+        inputs, labels = inputs[..., :-1], labels[..., 1:]
+        return inputs, labels
 
 
 # -------------------------
 # Patch Streaming functions
 # -------------------------
-
 
 def _get_batch_size(self, batch: Any) -> int:
     """Get the number of samples in a batch.

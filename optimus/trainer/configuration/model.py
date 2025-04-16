@@ -11,8 +11,8 @@ class ModelConfig:
     gpu: bool = True
 
     # Model parameters
-    model_name: str = "eurobert"
-    model_size: str | None = "210m"
+    model_name: str = "sl_model"
+    model_size: str | None = "decoder-210m"
 
     # If parameters are not provided, default values of the model size are used.
     vocab_size: int | None = 128256  # Vocabulary size
@@ -25,6 +25,7 @@ class ModelConfig:
     mlp_hidden_dim: int | None = None  # MLP hidden dimension
     bias: bool | None = None  # Bias
     attn_impl: str | None = None  # Attention implementation
+    causal: bool | None = None # Attention mask (either bidirectional or causal)
     rope_base: int | None = None  # Rope base
 
     fused_rms_norm: bool = False  # Fused RMS norm

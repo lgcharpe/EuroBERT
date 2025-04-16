@@ -33,12 +33,12 @@ except ImportError:
     LIGER_KERNEL_AVAILABLE = False
 
 
-#################################
-### Transformer Encoder Model ###
-#################################
+#########################
+### Transformer Model ###
+#########################
 
 
-class TransformerEncoder(nn.Module):
+class TransformerModel(nn.Module):
     def __init__(
         self,
         embedding: nn.Module,
@@ -126,9 +126,9 @@ class CustomEmbedding(torch.nn.Module):
         torch.nn.init.normal_(self.weight, mean=0.0, std=0.02)
 
 
-##################################
-### Transformer Encoder Module ###
-##################################
+##########################
+### Transformer Module ###
+##########################
 
 
 class Block(nn.Module):
@@ -189,6 +189,7 @@ class SelfAttention(nn.Module, abc.ABC):
         rope: tp.Optional[RoPE],
         dropout: float,
         bias: bool,
+        causal: bool,
         flash: str = "torch",
     ):
         super().__init__()
@@ -200,6 +201,7 @@ class SelfAttention(nn.Module, abc.ABC):
         self.block_size = block_size
         self.dropout = dropout
         self.rope = rope
+        self.causal = causal
         self.flash = flash
         if self.flash:
             assert FLASH_ATTN_AVAILABLE, "Flash attention is not installed"
@@ -232,6 +234,7 @@ class SelfAttention(nn.Module, abc.ABC):
             h (torch.Tensor): Input tensor of shape
                 [batch, seq_len, num_heads, head_dim] or [total, num_heads, head_dim].
             cu_seq_lens (torch.Tensor, optional): Cumulative sequence lengths tensor of shape [batch + 1].
+            max_seqlen (int, optional): Maximum sequence length (needed for some Flash implementations).
             cache (Cache, optional): Dictionary containing precomputed cosine and sine values for RoPE.
 
         Returns:
@@ -282,32 +285,39 @@ class SelfAttention(nn.Module, abc.ABC):
                     max_seqlen_q=max_seqlen,
                     max_seqlen_k=max_seqlen,
                     dropout_p=self.dropout,
-                    causal=False,
+                    causal=self.causal,
                 )
             else:
                 attn = self._matmul_packed_sdpa(q, k, v, cu_seq_lens)
         else:
             if self.flash:
                 attn = flash_attn.flash_attn_func(
-                    q, k, v, causal=False, dropout_p=self.dropout
+                    q, k, v, causal=self.causal, dropout_p=self.dropout
                 )
             else:
                 k, v = self._maybe_repeat_keys_values(
                     k, v, self.num_heads, self.num_kv_heads
                 )
-                attn = F.scaled_dot_product_attention(q, k, v, dropout_p=self.dropout)
+                attn = F.scaled_dot_product_attention(q, k, v, dropout_p=self.dropout, is_causal=self.causal)
                 attn = einops.rearrange(attn, "b h l d -> b l h d")
 
-        # Final projection
         attn = einops.rearrange(attn, "... h d -> ... (h d)")
         return self.out_proj(attn)
 
     def _matmul_packed_sdpa(self, q, k, v, cu_seq_lens):
-        """Compute scaled dot-product attention for packed sequences."""
+        """
+        Compute scaled dot-product attention for packed sequences.
+
+        Args:
+            q, k, v (torch.Tensor): Packed query/key/value tensors of shape [total_len, heads, dim].
+            cu_seq_lens (torch.Tensor): Cumulative sequence lengths of shape [batch + 1].
+
+        Returns:
+            torch.Tensor: Output tensor of shape [total_len, heads, dim].
+        """
         _, num_heads, head_dim = q.size()
         _, num_kv_heads, _ = k.size()
 
-        # Expand key and value heads to match query heads
         k = einops.repeat(
             k, "n h d -> n (h expand) d", expand=num_heads // num_kv_heads
         )
@@ -315,44 +325,46 @@ class SelfAttention(nn.Module, abc.ABC):
             v, "n h d -> n (h expand) d", expand=num_heads // num_kv_heads
         )
 
-        # Compute scaled attention scores
         q = q / head_dim**0.5
         attn = torch.einsum("q h d, k h d -> h q k", q, k)
 
-        # Apply non-causal mask
-        mask = self._make_packed_seqs_non_causal_mask(cu_seq_lens, device=q.device)
+        mask = self._make_packed_seqs_mask(cu_seq_lens, device=q.device)
         attn += mask
 
-        # Normalize attention scores
         attn = F.softmax(attn, dim=-1, dtype=torch.float32).type_as(q)
 
-        # Apply dropout if specified
         if self.dropout > 0:
             attn = F.dropout(attn, p=self.dropout)
 
-        # Compute weighted values
         return torch.einsum("h q k, k h d -> q h d", attn, v)
 
-    def _make_packed_seqs_non_causal_mask(
-        self, cu_seq_lens: torch.Tensor, device: torch.device = torch.device("cpu")
+    def _make_packed_seqs_mask(
+        self,
+        cu_seq_lens: torch.Tensor,
+        device: torch.device = torch.device("cpu")
     ):
         """
-        Create a non-causal mask for packed sequences.
+        Create a mask for packed sequences.
 
         Args:
             cu_seq_lens (torch.Tensor): Cumulative sequence lengths tensor of shape [batch + 1].
             device (torch.device): Device for the mask tensor.
 
         Returns:
-            torch.Tensor: Non-causal mask of shape [total_q_len, total_k_len].
+            torch.Tensor: Mask of shape [total_q_len, total_k_len].
         """
         total_len = cu_seq_lens[-1]
         mask = torch.full((total_len, total_len), float("-inf"), device=device)
 
         for i in range(1, len(cu_seq_lens)):
-            q_start, q_end = cu_seq_lens[i - 1], cu_seq_lens[i]
-            k_start, k_end = q_start, q_end
-            mask[q_start:q_end, k_start:k_end] = 0
+            start, end = cu_seq_lens[i - 1], cu_seq_lens[i]
+            if self.causal:
+                row = torch.arange(end - start, device=device)[:, None]
+                col = torch.arange(end - start, device=device)[None, :]
+                local_mask = torch.where(row >= col, 0.0, float("-inf"))
+                mask[start:end, start:end] = local_mask
+            else:
+                mask[start:end, start:end] = 0
 
         return mask
 
@@ -363,6 +375,18 @@ class SelfAttention(nn.Module, abc.ABC):
         num_heads: int,
         num_kv_heads: int,
     ) -> tuple[torch.Tensor, torch.Tensor]:
+        """
+        Repeat K/V heads if GQA is used (i.e., num_kv_heads < num_heads).
+
+        Args:
+            k (torch.Tensor): Keys of shape [B, H_kv, L, D].
+            v (torch.Tensor): Values of shape [B, H_kv, L, D].
+            num_heads (int): Number of query heads.
+            num_kv_heads (int): Number of key/value heads.
+
+        Returns:
+            Tuple[torch.Tensor, torch.Tensor]: K, V repeated to match query head count.
+        """
         if num_heads == num_kv_heads:
             return k, v
 
