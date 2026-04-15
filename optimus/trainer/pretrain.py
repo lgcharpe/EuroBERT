@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import contextlib
 import os
 import time
@@ -16,11 +18,14 @@ from optimus.trainer.distributed import Distributed
 from optimus.trainer.model.load import compile_model
 from optimus.trainer.model.tools import ModelTools
 
+from typing import TYPE_CHECKING, Optional
+if TYPE_CHECKING:
+    from wandb.sdk.wandb_run import Run
 
 class Pretrain:
     """Pretrain class to train the model."""
 
-    def __init__(self, model, data: Data, distributed: Distributed, config: Config):
+    def __init__(self, model, data: Data, distributed: Distributed, config: Config, wandb_run: Optional[Run] = None):
         """
         Args:
             model: Model to train.
@@ -33,6 +38,7 @@ class Pretrain:
         self.config = config
         self.train_config = config.train
         self.system_config = config.system
+        self.wandb_run = wandb_run
 
         self.main_process = config.is_main_process
         self.tokens_per_step = (
@@ -181,7 +187,7 @@ class Pretrain:
                             "Learning rate", self.scheduler.get_last_lr()[0], self.step
                         )
                         self.writer.add_scalar(
-                            "Time/step in seconde", end_time - start_time, self.step
+                            "Time/step in seconds", end_time - start_time, self.step
                         )
                         self.writer.add_scalar(
                             "Tokens seen", self.tokens_per_step * self.step, self.step
@@ -191,6 +197,22 @@ class Pretrain:
                             self.tokens_per_step / (end_time - start_time),
                             self.step,
                         )
+                    if (
+                        self.train_config.wandb
+                        and self.main_process
+                        and self.wandb_run is not None
+                    ):
+                        self.wandb_run.log(
+                            {
+                                    "Loss/train": total_loss,
+                                    "Gradient norm": grad_norm,
+                                    "Learning rate": self.scheduler.get_last_lr()[0],
+                                    "Time/step in seconds": end_time - start_time,
+                                    "Tokens seen": self.tokens_per_step * self.step,
+                                    "Tokens seen/second": self.tokens_per_step / (end_time - start_time)
+                                },
+                                step=self.step
+                            )
 
                     # Validation
                     if self.train_config.run_validation & (
@@ -240,9 +262,12 @@ class Pretrain:
         loss /= len(self.data.eval_dataloader)
         if self.train_config.fsdp or self.train_config.ddp:
             dist.all_reduce(loss, op=dist.ReduceOp.AVG)
-        if self.train_config.tensorboard and self.main_process:
-            self.writer.add_scalar("Loss/eval", loss, self.step)
-            print("Validation loss:", loss.item())
+        if self.main_process:
+            self.config.log_print("Validation loss:", loss.item())
+            if self.train_config.tensorboard:
+                self.writer.add_scalar("Loss/eval", loss, self.step)
+            if self.train_config.wandb and self.wandb_run is not None:
+                self.wandb_run.log({"Loss/eval": loss}, step=self.step)
         self.model.train()
 
     # ----------------------

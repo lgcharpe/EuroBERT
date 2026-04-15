@@ -2,6 +2,8 @@ import fire
 import torch.distributed as dist
 import torch.distributed.elastic.multiprocessing
 
+import wandb
+
 from optimus.trainer.configuration.configs import Config
 from optimus.trainer.data import Data, patch_spanner
 from optimus.trainer.distributed import Distributed
@@ -39,6 +41,18 @@ def main(**kwargs):
         dist.barrier()
     config.log_print("Mosaic ML Streaming spanner patched successfully.")
 
+    wandb_run = None
+    if config.train.wandb and config.is_main_process:
+        wandb_run = wandb.init(
+            entity=config.train.wandb_entity,
+            project=config.train.project_name,
+            name=config.train.wandb_run_name,
+            id=config.train.wandb_run_name,
+            config=config.__dict__,
+            resume="allow",
+            save_code=True,
+        )
+
     # Load data
     data = Data(config, tokenizer)
     if distributed:
@@ -46,13 +60,15 @@ def main(**kwargs):
     config.log_print("Data loaded.")
 
     # Train model
-    pretrain = Pretrain(model, data, distributed, config)
+    pretrain = Pretrain(model, data, distributed, config, wandb_run)
     pretrain.train()
 
     # Cleanup distributed training
     if distributed:
         distributed.cleanup()
     config.log_print("Training completed successfully.")
+
+    wandb_run.finish() if wandb_run is not None else None
 
     exit(0)
 
