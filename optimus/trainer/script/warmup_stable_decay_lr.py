@@ -76,7 +76,9 @@ class WarmupStableDecayLR(LRScheduler):
             self.final_lr = 0
         else:
             self.final_lr = max_lr / final_div_factor
-        super(WarmupStableDecayLR, self).__init__(optimizer, last_epoch, "deprecated")
+        
+        self.verbose = verbose
+        super(WarmupStableDecayLR, self).__init__(optimizer, last_epoch)
 
     def get_lr(self):
         if self.last_epoch < self.warmup_iters:
