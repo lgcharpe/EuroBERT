@@ -175,3 +175,7 @@ cython_debug/
 
 # Mac
 .DS_Store
+
+*.mds
+*.json
+run/

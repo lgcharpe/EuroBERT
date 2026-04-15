@@ -19,26 +19,28 @@ classifiers = [
   "Operating System :: OS Independent"
 ]
 dependencies = [
-  "blobfile==3.0.0",
-  "einops==0.8.1",
-  "fire==0.6.0",
-  "ijson==3.3.0",
-  "mosaicml_streaming==0.7.6",
-  "numpy==2.2.4",
-  "pandas==2.2.3",
-  "pyarrow==16.0.0",
-  "python_dateutil==2.9.0",
-  "tensorboard==2.19.0",
-  "tiktoken==0.7.0",
-  "torch==2.4.1",
-  "transformers==4.49.0",
-  "zstandard==0.23.0"
+  "blobfile>=3.0.0",
+  "datasets>=4.8.4",
+  "einops>=0.8.1",
+  "fire>=0.6.0",
+  "ijson>=3.3.0",
+  "mosaicml_streaming>=0.7.6",
+  "numpy>=2.2.4",
+  "pandas>=2.2.3",
+  "pyarrow>=16.0.0",
+  "python_dateutil>=2.9.0",
+  "tensorboard>=2.19.0",
+  "tiktoken>=0.7.0",
+  "tokenizers>=0.20.0",
+  "torch>=2.4.1",
+  "transformers>=4.49.0",
+  "zstandard>=0.23.0",
 ]
 
 [project.optional-dependencies]
 kernel = [
-  "flash_attn==2.7.4",
-  "liger_kernel==0.5.5"
+  "flash_attn>=2.7.4",
+  "liger_kernel>=0.5.5"
 ]
 
 [project.urls]
