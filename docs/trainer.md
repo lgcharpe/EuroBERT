@@ -134,3 +134,190 @@ This section defines your model's architecture. If you provide a huggingface_id,
 | fused_linear_cross_entropy | bool | False | Use fused linear cross entropy. |
 
 Pro Tip: Want to create a custom model? Check out the example in [optimus/trainer/model/encoder/eurobert.py](https://github.com/Nicolas-BZRD/EuroBERT/tree/main/optimus/trainer/model/encoder/eurobert.py) within this repository!
+
+---
+
+## 🏃 **Running Training**
+
+### Single GPU
+
+```bash
+python -m optimus.train \
+    --model_name eurobert --model_size 210m \
+    --tokenizer_path_or_name meta-llama/Meta-Llama-3-8B-Instruct \
+    --data_mix_path ./data/mix \
+    --output_dir ./runs --project_name my_run \
+    --lr 1e-4 --num_epochs 1 --batch_size 8 --length 2048
+```
+
+### Multi-GPU: DDP
+
+```bash
+torchrun --nproc_per_node=8 -m optimus.train \
+    --ddp True \
+    --model_name eurobert --model_size 610m \
+    --tokenizer_path_or_name meta-llama/Meta-Llama-3-8B-Instruct \
+    --data_mix_path ./data/mix \
+    --output_dir ./runs --project_name ddp_run \
+    --lr 2e-4 --num_epochs 1 --batch_size 8
+```
+
+### Multi-GPU: FSDP
+
+```bash
+torchrun --nproc_per_node=8 -m optimus.train \
+    --fsdp True \
+    --model_name eurobert --model_size 2b \
+    --tokenizer_path_or_name meta-llama/Meta-Llama-3-8B-Instruct \
+    --data_mix_path ./data/mix \
+    --output_dir ./runs --project_name fsdp_run \
+    --lr 1e-4 --num_epochs 1 --batch_size 4 --gradient_accumulation_steps 4
+```
+
+### Multi-node: FSDP (2 nodes × 8 GPUs)
+
+```bash
+torchrun \
+    --nnodes=2 --nproc_per_node=8 \
+    --rdzv_id=job123 --rdzv_backend=c10d \
+    --rdzv_endpoint=$MASTER_ADDR:29500 \
+    -m optimus.train \
+    --fsdp True --model_name eurobert --model_size 2b \
+    --data_mix_path ./data/mix ...
+```
+
+### Resume from Checkpoint
+
+```bash
+python -m optimus.train \
+    --reload_checkpoint ./runs/my_run/checkpoints/5000 \
+    --data_mix_path ./data/mix
+```
+
+The configuration is automatically restored from `checkpoints/5000/config.json`. Only parameters you explicitly pass on the CLI will override the saved config.
+
+### Use a HuggingFace Model
+
+Pass a HuggingFace model ID instead of a model name. When `huggingface_id` is set, all `model_*` architecture parameters are ignored and the model is loaded with `AutoModelForMaskedLM`.
+
+```bash
+python -m optimus.train \
+    --huggingface_id "Nicolas-BZRD/EuroBERT-210m" \
+    --data_mix_path ./data/mix \
+    --lr 5e-5 --num_epochs 1 --batch_size 8
+```
+
+---
+
+## 📁 **Checkpoint Layout**
+
+After training, checkpoints are saved under:
+
+```
+output_dir/
+└── <project_name>/
+    ├── tensorboard/                  # TensorBoard event files
+    ├── profiler/                     # Profiler traces (if enabled)
+    └── checkpoints/
+        └── <step>/
+            ├── model.pt              # Model state dict
+            ├── optimizer.pt          # Optimizer state dict
+            ├── scheduler.pt          # LR scheduler state dict
+            ├── train_dataloader.pt   # Dataloader position (for exact resume)
+            └── config.json           # Full serialised Config
+```
+
+You can disable saving any component separately:
+
+```bash
+python -m optimus.train ... \
+    --save_optimizer False \
+    --save_scheduler False \
+    --save_data_loader False
+```
+
+---
+
+## 📈 **Learning Rate Schedulers**
+
+Three schedulers are built in, selected via `--lr_scheduler`:
+
+### `WarmupStableDecayLR` (default)
+
+Three-phase schedule: linear warm-up → constant plateau → linear decay.
+
+| Parameter | Meaning |
+|---|---|
+| `pct_start` | Warm-up length (≤ 1 = fraction of total steps, > 1 = absolute steps) |
+| `div_factor` | `initial_lr = max_lr / div_factor` (0 = start from 0) |
+| `end_start` | Decay length (same units as `pct_start`) |
+| `final_div_factor` | `final_lr = max_lr / final_div_factor` (0 = decay to 0) |
+
+Example — 1 % warm-up, hold, decay the last 10 %:
+```bash
+--lr_scheduler WarmupStableDecayLR --lr 1e-4 \
+--pct_start 0.01 --div_factor 100 \
+--end_start 0.10 --final_div_factor 100
+```
+
+### `CosineAnnealingLR`
+
+Standard cosine decay over the total number of steps. No extra parameters needed.
+
+### `OneCycleLR`
+
+Uses `pct_start`, `div_factor`, and `final_div_factor` — see [PyTorch docs](https://pytorch.org/docs/stable/generated/torch.optim.lr_scheduler.OneCycleLR.html).
+
+---
+
+## 🔩 **Kernel Optimisations**
+
+Optional fused kernels require the `kernel` extra install:
+
+```bash
+pip install "git+https://github.com/Nicolas-BZRD/EuroBERT.git[kernel]"
+# installs flash_attn and liger_kernel
+```
+
+| Flag | Kernel | Benefit |
+|---|---|---|
+| `--attn_impl flash` | Flash Attention 2 | Faster + lower-memory attention (not compatible with `torch.compile`) |
+| `--fused_rms_norm True` | Liger RMSNorm | ~30 % faster normalisation |
+| `--fused_rope True` | Liger RoPE | ~25 % faster positional embedding |
+| `--fused_swiglu True` | Liger SwiGLU | ~20 % faster FFN activation |
+| `--fused_cross_entropy True` | Liger CrossEntropy | Memory-efficient loss (avoids materialising large logit tensors) |
+
+`torch.compile` (`--compile_model True`) is compatible with all fused kernels **except** Flash Attention. When using both `flash` attention and `torch.compile`, Flash SDP is automatically disabled and the math SDPA kernel is used instead.
+
+---
+
+## 🔍 **Profiling**
+
+Enable PyTorch profiler with:
+
+```bash
+python -m optimus.train ... \
+    --profile True \
+    --profiler_output chrome \   # or "tensorboard"
+    --exit_end_profiling True    # stop after 20 steps
+```
+
+Profiler output is saved to `output_dir/<project_name>/profiler/`. Open Chrome traces at `chrome://tracing`.
+
+---
+
+## 📊 **TensorBoard**
+
+TensorBoard logging is enabled by default. Tracked metrics:
+
+- `Loss/train` — training loss per step
+- `Loss/eval` — validation loss (if eval set provided)
+- `Gradient norm` — grad norm after clipping
+- `Learning rate` — current LR from scheduler
+- `Time/step in seconde` — wall-clock seconds per step
+- `Tokens seen` — cumulative tokens processed
+- `Tokens seen/second` — throughput
+
+```bash
+tensorboard --logdir ./runs/my_run/tensorboard
+```
