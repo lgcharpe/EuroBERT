@@ -1,4 +1,7 @@
+import contextlib
 import fire
+import random
+import torch
 import torch.distributed as dist
 import torch.distributed.elastic.multiprocessing
 
@@ -11,6 +14,21 @@ from optimus.trainer.model.load import load_model, load_tokenizer
 from optimus.trainer.pretrain import Pretrain
 
 
+def set_global_seed(base_seed: int, rank: int = 0) -> int:
+    """Seed Python, NumPy and PyTorch RNGs for reproducible runs."""
+    seed = int(base_seed) + int(rank)
+    random.seed(seed)
+    with contextlib.suppress(ImportError):
+        import numpy as np
+
+        np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)
+    return seed
+
+
 @torch.distributed.elastic.multiprocessing.errors.record
 def main(**kwargs):
     # Load configurations
@@ -20,6 +38,10 @@ def main(**kwargs):
     distributed = None
     if config.use_ddp or config.use_fsdp:
         distributed = Distributed(config)
+
+    rank = config.system.rank if (config.use_ddp or config.use_fsdp) else 0
+    actual_seed = set_global_seed(config.train.seed, rank=rank)
+    config.log_print(f"Global RNG seed set to {actual_seed}.", main_only=False)
 
     # Load/set model and get tokenizer.
     model = load_model(config)
