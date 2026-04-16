@@ -17,6 +17,7 @@ from optimus.trainer.data import Data
 from optimus.trainer.distributed import Distributed
 from optimus.trainer.model.load import compile_model
 from optimus.trainer.model.tools import ModelTools
+from optimus.trainer.optimizer_factory import build_optimizer
 
 from typing import TYPE_CHECKING, Optional
 if TYPE_CHECKING:
@@ -64,14 +65,7 @@ class Pretrain:
                 rf"{self.train_config.output_dir}/{self.train_config.project_name}/tensorboard"
             )
 
-        self.optimizer = torch.optim.AdamW(
-            self.model.parameters(),
-            lr=self.train_config.lr,
-            weight_decay=self.train_config.weight_decay,
-            betas=(self.train_config.beta1, self.train_config.beta2),
-            eps=self.train_config.eps,
-            fused=self.train_config.fused,
-        )
+        self.optimizer = build_optimizer(self.model, self.train_config)
 
         self.scheduler = self.get_scheduler(self.train_config.lr_scheduler)
         self.step = 0
@@ -128,116 +122,118 @@ class Pretrain:
         start_time = time.time()
 
         with profiler as prof:
-            for i, batch in enumerate(self.data.train_dataloader, start=1):
-                # First batch processing
-                if self.pre_batch_step(i, skip_threshold):
-                    continue
+            for epoch in range(self.train_config.num_epochs):
+                for i, batch in enumerate(self.data.train_dataloader, start=1):
+                    # First batch processing
+                    if self.pre_batch_step(i, skip_threshold):
+                        continue
 
-                # No sync context manager for gradient accumulation
-                no_sync = (
-                    self.model.no_sync()
-                    if i % self.config.train.gradient_accumulation_steps != 0
-                    else nullcontext()
-                )
+                    # No sync context manager for gradient accumulation
+                    no_sync = (
+                        self.model.no_sync()
+                        if i % self.config.train.gradient_accumulation_steps != 0
+                        else nullcontext()
+                    )
 
-                with no_sync:
-                    with autocast:
-                        if self.config.model.huggingface_id:
-                            batch = {
-                                key: value.to(device=self.model.device)
-                                for key, value in batch.items()
-                            }
-                            loss, _ = self.model(**batch)
-                        else:
-                            _, loss = self.model(**batch, cache=self.cache)
-                        loss = loss / self.config.train.gradient_accumulation_steps
-                    loss.backward()
-                total_loss += loss.detach().item()
-                self.scheduler.step()
+                    with no_sync:
+                        with autocast:
+                            if self.config.model.huggingface_id:
+                                batch = {
+                                    key: value.to(device=self.model.device)
+                                    for key, value in batch.items()
+                                }
+                                loss, _ = self.model(**batch)
+                            else:
+                                _, loss = self.model(**batch, cache=self.cache)
+                            loss = loss / self.config.train.gradient_accumulation_steps
+                        loss.backward()
+                    total_loss += loss.detach().item()
+                    self.scheduler.step()
 
-                # Training step
-                if i % self.train_config.gradient_accumulation_steps == 0 or i == len(
-                    self.data.train_dataloader
-                ):
-                    grad_norm = self.clip_grad_norm_(self.train_config.clip_grad_norm)
-
-                    self.optimizer.step()
-                    self.optimizer.zero_grad()
-                    self.step += 1
-
-                    end_time = time.time()
-                    if self.main_process:
-                        self.config.log_print(
-                            f"Step: {self.step}",
-                            f"Loss: {total_loss:.4f}",
-                            f"Tokens/s: {(self.tokens_per_step / (end_time - start_time)):.2f}",
-                            f"Time/step (s): {(end_time - start_time):.2f}",
-                            f"Learning rate: {self.scheduler.get_last_lr()[0]}",
-                            f"Grad norm: {grad_norm:.4f}",
-                        )
-
-                    if (
-                        self.train_config.tensorboard
-                        and self.main_process
-                        and self.step % self.train_config.log_every_n_steps == 0
-                    ):
-                        self.writer.add_scalar("Loss/train", total_loss, self.step)
-                        self.writer.add_scalar("Gradient norm", grad_norm, self.step)
-                        self.writer.add_scalar(
-                            "Learning rate", self.scheduler.get_last_lr()[0], self.step
-                        )
-                        self.writer.add_scalar(
-                            "Time/step in seconds", end_time - start_time, self.step
-                        )
-                        self.writer.add_scalar(
-                            "Tokens seen", self.tokens_per_step * self.step, self.step
-                        )
-                        self.writer.add_scalar(
-                            "Tokens seen/second",
-                            self.tokens_per_step / (end_time - start_time),
-                            self.step,
-                        )
-                    if (
-                        self.train_config.wandb
-                        and self.main_process
-                        and self.wandb_run is not None
-                    ):
-                        self.wandb_run.log(
-                            {
-                                    "Loss/train": total_loss,
-                                    "Gradient norm": grad_norm,
-                                    "Learning rate": self.scheduler.get_last_lr()[0],
-                                    "Time/step in seconds": end_time - start_time,
-                                    "Tokens seen": self.tokens_per_step * self.step,
-                                    "Tokens seen/second": self.tokens_per_step / (end_time - start_time)
-                                },
-                                step=self.step
-                            )
-
-                    # Validation
-                    if self.train_config.run_validation & (
-                        self.step % self.train_config.validation_step == 0
-                    ):
-                        if self.data.eval_dataloader is not None:
-                            self.eval()
-
-                    # Save model and other states
-                    if self.step % self.train_config.save_step == 0 or i == len(
+                    # Training step
+                    if i % self.train_config.gradient_accumulation_steps == 0 or i == len(
                         self.data.train_dataloader
                     ):
-                        self.save()
-                        self.config.log_print(
-                            f"Remaining steps: {(len(self.data.train_dataloader) - i)/self.train_config.gradient_accumulation_steps}"
-                        )
+                        grad_norm = self.clip_grad_norm_(self.train_config.clip_grad_norm)
 
-                    # Profiling
-                    if isinstance(prof, torch.profiler.profile) and self.main_process:
-                        prof.step()
-                        if prof.step_num == 20 and self.train_config.exit_end_profiling:
-                            break
+                        self.optimizer.step()
+                        self.optimizer.zero_grad()
+                        self.step += 1
 
-                    start_time = end_time
-                    total_loss = 0
+                        end_time = time.time()
+                        if self.main_process:
+                            self.config.log_print(
+                                f"Step: {self.step}",
+                                f"Loss: {total_loss:.4f}",
+                                f"Tokens/s: {(self.tokens_per_step / (end_time - start_time)):.2f}",
+                                f"Time/step (s): {(end_time - start_time):.2f}",
+                                f"Learning rate: {self.scheduler.get_last_lr()[0]}",
+                                f"Grad norm: {grad_norm:.4f}",
+                            )
+
+                        if (
+                            self.train_config.tensorboard
+                            and self.main_process
+                            and self.step % self.train_config.log_every_n_steps == 0
+                        ):
+                            self.writer.add_scalar("Loss/train", total_loss, self.step)
+                            self.writer.add_scalar("Gradient norm", grad_norm, self.step)
+                            self.writer.add_scalar(
+                                "Learning rate", self.scheduler.get_last_lr()[0], self.step
+                            )
+                            self.writer.add_scalar(
+                                "Time/step in seconds", end_time - start_time, self.step
+                            )
+                            self.writer.add_scalar(
+                                "Tokens seen", self.tokens_per_step * self.step, self.step
+                            )
+                            self.writer.add_scalar(
+                                "Tokens seen/second",
+                                self.tokens_per_step / (end_time - start_time),
+                                self.step,
+                            )
+                        if (
+                            self.train_config.wandb
+                            and self.main_process
+                            and self.wandb_run is not None
+                        ):
+                            self.wandb_run.log(
+                                {
+                                        "Loss/train": total_loss,
+                                        "Gradient norm": grad_norm,
+                                        "Learning rate": self.scheduler.get_last_lr()[0],
+                                        "Time/step in seconds": end_time - start_time,
+                                        "Tokens seen": self.tokens_per_step * self.step,
+                                        "Tokens seen/second": self.tokens_per_step / (end_time - start_time),
+                                        "Epoch": epoch,
+                                    },
+                                    step=self.step
+                                )
+
+                        # Validation
+                        if self.train_config.run_validation and (
+                            self.step % self.train_config.validation_step == 0
+                        ):
+                            if self.data.eval_dataloader is not None:
+                                self.eval()
+
+                        # Save model and other states
+                        if self.step % self.train_config.save_step == 0 or i == len(
+                            self.data.train_dataloader
+                        ):
+                            self.save()
+                            self.config.log_print(
+                                f"Remaining steps: {(len(self.data.train_dataloader) - i)/self.train_config.gradient_accumulation_steps}"
+                            )
+
+                        # Profiling
+                        if isinstance(prof, torch.profiler.profile) and self.main_process:
+                            prof.step()
+                            if prof.step_num == 20 and self.train_config.exit_end_profiling:
+                                break
+
+                        start_time = end_time
+                        total_loss = 0
 
     def eval(self):
         """
@@ -385,7 +381,7 @@ class Pretrain:
         # Tensorboard reloading
         if self.config.train.skip_reload_tensorboard:
             self.config.log_print("Skipping reloading the tensorboard.")
-            self.config.train.skip_reload_scheduler = False
+            self.config.train.skip_reload_tensorboard = False
         elif self.train_config.tensorboard and self.main_process:
             self.writer = SummaryWriter(log_dir=tensorboard_path, purge_step=self.step)
             self.config.log_print("Tensorboard reloaded.")
