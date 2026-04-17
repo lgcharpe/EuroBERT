@@ -1,6 +1,7 @@
 import json
 from types import MethodType
 from typing import Any
+import os
 
 import numpy as np
 import torch
@@ -52,19 +53,31 @@ class Data:
         self.train_streams = self.__load_data_mix(
             rf"{self.data_config.data_mix_path}/train.json"
         )
+        if os.path.exists(rf"{self.data_config.data_mix_path}/eval.json") and config.train.run_validation:
+            self.eval_streams = self.__load_data_mix(
+                rf"{self.data_config.data_mix_path}/eval.json"
+            )
+        else:
+            self.eval_streams = None
+            config.log_print("Eval data mix not found or run_validation is False. Evaluation will be skipped.")
+
 
         # Create datasets
         self.train_dataset = self.__create_dataset(self.train_streams)
-        # self.eval_dataset = self.__create_dataset(self.eval_streams, eval=True) if self.eval_streams else None
+        self.eval_dataset = self.__create_dataset(self.eval_streams, eval=True) if self.eval_streams else None
         config.log_print("Train dataset created successfully:", len(self.train_dataset))
 
         # Create dataloaders
         self.train_dataloader = self.__create_dataloader(self.train_dataset)
-        # self.eval_dataloader = self.__create_dataloader(self.eval_dataset) if self.eval_dataset else None
-        self.eval_dataloader = None
+        self.eval_dataloader = self.__create_dataloader(self.eval_dataset) if self.eval_dataset else None
         config.log_print(
             "Train dataloader created successfully:", len(self.train_dataloader)
         )
+        if self.eval_dataloader:
+            config.log_print(
+                "Eval dataloader created successfully:", len(self.eval_dataloader)
+            )
+
 
         config.log_print(
             f"Masking probabilities: MLM={config.train.mlm_probability}, Mask={config.train.mask_probability}, Random={config.train.random_probability}, Original={config.train.original_probability}"
