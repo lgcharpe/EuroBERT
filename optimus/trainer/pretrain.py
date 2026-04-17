@@ -109,10 +109,18 @@ class Pretrain:
 
         # Initialize training parameters
         total_loss = 0
-        skip_threshold = (
-            self.config.data.step_to_skip
-            * self.config.train.gradient_accumulation_steps
-        )
+
+        # Only apply skip if NOT resuming (skip is one-time initialization cost)
+        if self.train_config.reload_checkpoint is None:
+            skip_threshold = (
+                self.config.data.step_to_skip
+                * self.config.train.gradient_accumulation_steps
+            )
+        else:
+            skip_threshold = -1  # Disable skip on resume (never trigger)
+
+        global_microbatch_idx = 1  # Initialize before epoch loop
+        self.optimizer.zero_grad()
 
         if self.distributed:
             dist.barrier()
@@ -125,15 +133,17 @@ class Pretrain:
             for epoch in range(self.train_config.num_epochs):
                 for i, batch in enumerate(self.data.train_dataloader, start=1):
                     # First batch processing
-                    if self.pre_batch_step(i, skip_threshold):
+                    if self.pre_batch_step(global_microbatch_idx, skip_threshold):
+                        global_microbatch_idx += 1
                         continue
 
                     # No sync context manager for gradient accumulation
-                    no_sync = (
-                        self.model.no_sync()
-                        if i % self.config.train.gradient_accumulation_steps != 0
-                        else nullcontext()
+                    use_no_sync = (
+                        self.distributed
+                        and hasattr(self.model, "no_sync")
+                        and i % self.config.train.gradient_accumulation_steps != 0
                     )
+                    no_sync = self.model.no_sync() if use_no_sync else nullcontext()
 
                     with no_sync:
                         with autocast:
@@ -148,7 +158,7 @@ class Pretrain:
                             loss = loss / self.config.train.gradient_accumulation_steps
                         loss.backward()
                     total_loss += loss.detach().item()
-                    self.scheduler.step()
+                    global_microbatch_idx += 1
 
                     # Training step
                     if i % self.train_config.gradient_accumulation_steps == 0 or i == len(
@@ -157,6 +167,7 @@ class Pretrain:
                         grad_norm = self.clip_grad_norm_(self.train_config.clip_grad_norm)
 
                         self.optimizer.step()
+                        self.scheduler.step()
                         self.optimizer.zero_grad()
                         self.step += 1
 
@@ -223,14 +234,15 @@ class Pretrain:
                         ):
                             self.save()
                             self.config.log_print(
-                                f"Remaining steps: {(len(self.data.train_dataloader) - i)/self.train_config.gradient_accumulation_steps}"
+                                f"Remaining steps: {((self.train_config.num_epochs - epoch) * len(self.data.train_dataloader) - i)/self.train_config.gradient_accumulation_steps}"
                             )
 
                         # Profiling
                         if isinstance(prof, torch.profiler.profile) and self.main_process:
                             prof.step()
                             if prof.step_num == 20 and self.train_config.exit_end_profiling:
-                                break
+                                self.config.log_print("Profiling completed at step 20. Exiting.")
+                                return
 
                         start_time = end_time
                         total_loss = 0
@@ -242,18 +254,25 @@ class Pretrain:
         autocast = (
             torch.autocast(device_type="cuda", dtype=torch.bfloat16)
             if self.train_config.mixed_bfloat16 and not self.train_config.fsdp
-            else nullcontext
+            else nullcontext()
         )
         self.model.eval()
 
         loss = 0
         for batch in self.data.eval_dataloader:
-            input_ids = batch["input_ids"].to(device=self.model.device).contiguous()
-            labels = batch["labels"].to(device=self.model.device).contiguous()
-
             with torch.no_grad():
                 with autocast:
-                    _, loss = self.model(input_ids, labels=labels, cache=self.cache)
+                    if self.config.model.huggingface_id:
+                        batch = {
+                            key: value.to(device=self.model.device)
+                            for key, value in batch.items()
+                        }
+                        batch_loss, _ = self.model(**batch)
+                    else:
+                        x = batch["x"].to(device=self.model.device).contiguous()
+                        labels = batch["labels"].to(device=self.model.device).contiguous()
+                        _, batch_loss = self.model(x, labels=labels, cache=self.cache)
+                    loss += batch_loss.detach()
 
         loss /= len(self.data.eval_dataloader)
         if self.train_config.fsdp or self.train_config.ddp:
@@ -418,18 +437,18 @@ class Pretrain:
                 decay_iters=self.train_config.end_start,
                 final_div_factor=self.train_config.final_div_factor,
                 epochs=self.train_config.num_epochs,
-                steps_per_epoch=len(self.data.train_dataloader),
+                steps_per_epoch=len(self.data.train_dataloader) // self.train_config.gradient_accumulation_steps,
             )
         elif lr_scheduler == "CosineAnnealingLR":
             return torch.optim.lr_scheduler.CosineAnnealingLR(
-                self.optimizer, T_max=len(self.data.train_dataloader)
+                self.optimizer, T_max=self.train_config.num_epochs * (len(self.data.train_dataloader) // self.train_config.gradient_accumulation_steps)
             )
         else:
             return torch.optim.lr_scheduler.OneCycleLR(
                 self.optimizer,
                 max_lr=self.train_config.lr,
                 epochs=self.train_config.num_epochs,
-                steps_per_epoch=len(self.data.train_dataloader),
+                steps_per_epoch=len(self.data.train_dataloader) // self.train_config.gradient_accumulation_steps,
                 pct_start=self.train_config.pct_start,
                 div_factor=self.train_config.div_factor,
                 final_div_factor=self.train_config.final_div_factor,
@@ -469,7 +488,7 @@ class Pretrain:
             if iter == skip_threshold:
                 if self.distributed:
                     self.config.log_print("Waiting all rank...")
-                dist.barrier()
+                    dist.barrier()
                 self.config.log_print(
                     f"Completed skipping {self.config.data.step_to_skip} steps."
                 )
