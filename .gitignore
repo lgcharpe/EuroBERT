@@ -180,3 +180,5 @@ cython_debug/
 *.json
 run/
 wandb/
+runs/
+UD_data/
