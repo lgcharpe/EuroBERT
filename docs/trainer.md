@@ -33,6 +33,46 @@ You can then launch training with the `python -m optimus.train` package. We addi
 
 Customize your training by passing parameters via the command line or config file. Below are the details for each configuration section.
 
+### ⚠️ **Current Gaps & Runtime Issues**
+
+The following are configuration options or code paths with incomplete implementation or runtime bugs. Updated in Audit Round 9.
+
+| Issue | Scope | Severity | Status | Where this happens |
+|---|---|---|---|---|
+| HuggingFace + `var_len=True` batch incompatibility | Training/Data | **High** | NEW BUG: Variable-length collate adds `cu_seq_lens` and `max_seqlen`; HF train/eval paths forward `**batch` to HF models, which may reject unexpected kwargs. | `optimus/trainer/data.py:163-196`, `optimus/trainer/pretrain.py:149-156,264-270` |
+| Scheduler `steps_per_epoch` can become 0 | Training | **Medium** | NEW BUG: Schedulers use `len(dataloader) // gradient_accumulation_steps`; for small datasets or large accumulation this becomes 0 and can break scheduler construction/behavior. | `optimus/trainer/pretrain.py:441,445,452` |
+| Eval dataloader drops last batch | Data/Eval | **Medium** | `drop_last=True` is used for both train and eval dataloaders, so validation can silently exclude tail samples and bias metrics. | `optimus/trainer/data.py:141` |
+| `length` not enforced in collation/masking | Data | **Low** | STILL BROKEN: Used only for throughput accounting, not to truncate/pad sequences. | `optimus/trainer/data.py:147-195` |
+| `fused_linear_cross_entropy` declared but unused | Model | **Low** | STILL BROKEN: Config field exists but never consumed by model loading code. | `optimus/trainer/configuration/model.py:34` |
+| Remaining-steps logging is still approximate | Training | **Low** | Uses `((num_epochs - epoch) * len(dataloader) - i) / grad_accum`; this is closer but still not based on true global optimizer-step target and can mislead progress reporting. | `optimus/trainer/pretrain.py:237` |
+
+**Fixed in Audit Round 9:**
+- ✅ **`no_sync` now guarded for non-distributed runs** (uses `self.distributed` + `hasattr` guard)
+- ✅ **`dist.barrier()` in skip completion now guarded by distributed check**
+
+**Fixed in Audit Round 8:**
+- ✅ **Eval loss accumulation and averaging path** (now accumulates tensor `batch_loss` and averages correctly)
+
+**Fixed in Audit Round 7:**
+- ✅ **Profiler exit now exits training correctly** (uses early `return` at profiler step 20 in `train()`)
+
+**Fixed in Audit Round 6:**
+- ✅ **step_to_skip global microbatch counter** (implemented with `global_microbatch_idx`)
+- ✅ **Eval native model batch format** (now extracts `x` and `labels` correctly)
+
+**Fixed in Audit Round 5:**
+- ✅ **step_to_skip skip on resume** (sets `skip_threshold = -1` on resume, lines 112-117)
+- ✅ **run_validation gates eval loading** (checks `and config.train.run_validation` at line 57)
+
+**Previously Fixed (Audit Rounds 1-4):**
+- ✅ `optimizer` (via optimizer_factory.py supporting AdamW, Adam, SGD)
+- ✅ `num_epochs` (real epoch loop in Pretrain.train() starting at line 135)
+- ✅ `train.seed` (global rank-aware seeding in optimus/train.py)
+- ✅ `skip_reload_tensorboard` (correct flag reset in Pretrain.resume())
+- ✅ **Eval context manager crash** (nullcontext() parentheses fixed)
+- ✅ **Eval split loading crash** (self.eval_streams initialization)
+- ✅ **CosineAnnealingLR multi-epoch** (multiplies by num_epochs)
+
 ### 🏋️ **Training Configuration**
 
 Fine-tune your training process with these parameters.
@@ -46,6 +86,7 @@ Fine-tune your training process with these parameters.
 | num_epochs | int | 1 | Number of training epochs. |
 | clip_grad_norm | float | 1.0 | Clip gradient norm. |
 | gradient_accumulation_steps | int | 1 | Number of steps to accumulate gradients before updating the model. |
+| optimizer | str | AdamW | Optimizer name. Supported by default: `AdamW`, `Adam`, `SGD` (via `optimus/trainer/optimizer_factory.py`). |
 | weight_decay | float | 0.1 | Weight decay. |
 | beta1 | float | 0.9 | Beta1 for Adam optimizer. |
 | beta2 | float | 0.95 | Beta2 for Adam optimizer. |
@@ -80,6 +121,9 @@ Fine-tune your training process with these parameters.
 | _mixed_precision | str | bfloat16 | FSDP training ShardingStrategy (`float32`, `float16`, `bfloat16`, `mixed_float16`, `mixed_bfloat16`, `bfloat16_reduce_32`), [PyTorch doc](https://pytorch.org/docs/stable/fsdp.html#torch.distributed.fsdp.MixedPrecision), [Config file](https://github.com/Nicolas-BZRD/EuroBERT/blob/main/optimus/trainer/configuration/distributed.py).|
 | seed | int | 42 | Random seed for reproducibility. |
 | tensorboard | bool | True | Enable tensorboard logging. |
+| wandb | bool | True | Enable Weights and Biases logging. |
+| wandb_entity | str | None | Weights and Biases entity/team. |
+| wandb_run_name | str | None | Weights and Biases run name and run id used for resume. |
 | profile | bool | False | Enable profiling. |
 | exit_end_profiling | bool | True | Exit after profiling. |
 | profiler_output | str | chrome | Type for the profiler output (chrome or tensorboard). |

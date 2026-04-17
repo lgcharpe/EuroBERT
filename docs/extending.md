@@ -10,6 +10,7 @@ This document explains how to add new model architectures, optimizers, learning 
 - [Add a Learning Rate Scheduler](#add-a-learning-rate-scheduler)
 - [Add a Dataset Adapter](#add-a-dataset-adapter)
 - [Add a Configuration Parameter](#add-a-configuration-parameter)
+- [Implement Missing Configuration Options](#implement-missing-configuration-options)
 - [Add Fused Kernel Support](#add-fused-kernel-support)
 - [Use a HuggingFace Model](#use-a-huggingface-model)
 
@@ -196,57 +197,31 @@ Then use it with `--model_size 4b`. Any key in the size dict can be overridden p
 
 ## Add an Optimizer
 
-The optimizer is instantiated in `Pretrain.__init__()` in [optimus/trainer/pretrain.py](../optimus/trainer/pretrain.py). Currently `AdamW` is hard-coded. To support additional optimizers:
+Optimizer selection is now centralized in [optimus/trainer/optimizer_factory.py](../optimus/trainer/optimizer_factory.py), and `Pretrain.__init__()` calls `build_optimizer(self.model, self.train_config)`.
 
-### 1. Add an `optimizer` config parameter
+### 1. Add the optimizer implementation
 
-`TrainConfig` already has an `optimizer: str = "AdamW"` field. Add your optimizer name as an option.
+If the optimizer exists in `torch.optim`, add a branch in `build_optimizer()`.
+If it is third-party, import it inside the branch to keep optional dependencies lazy.
 
-### 2. Replace the hard-coded instantiation
-
-In `Pretrain.__init__()`, change:
-
-```python
-self.optimizer = torch.optim.AdamW(
-    self.model.parameters(),
-    lr=self.train_config.lr,
-    weight_decay=self.train_config.weight_decay,
-    betas=(self.train_config.beta1, self.train_config.beta2),
-    eps=self.train_config.eps,
-    fused=self.train_config.fused,
-)
-```
-
-to a factory function:
+Example pattern:
 
 ```python
-self.optimizer = self._build_optimizer()
+def build_optimizer(model: torch.nn.Module, config: TrainConfig) -> torch.optim.Optimizer:
+    params = model.parameters()
+    if config.optimizer == "AdamW":
+        return torch.optim.AdamW(...)
+    elif config.optimizer == "MyOptimizer":
+        return MyOptimizer(params, ...)
+    else:
+        raise ValueError(f"Unknown optimizer {config.optimizer!r}")
 ```
 
-And add the method:
+### 2. Expose and document the name
 
-```python
-def _build_optimizer(self) -> torch.optim.Optimizer:
-    params = self.model.parameters()
-    cfg = self.train_config
-    match cfg.optimizer:
-        case "AdamW":
-            return torch.optim.AdamW(
-                params, lr=cfg.lr, weight_decay=cfg.weight_decay,
-                betas=(cfg.beta1, cfg.beta2), eps=cfg.eps, fused=cfg.fused,
-            )
-        case "SGD":
-            return torch.optim.SGD(
-                params, lr=cfg.lr, momentum=0.9, weight_decay=cfg.weight_decay,
-            )
-        case "Lion":
-            from lion_pytorch import Lion
-            return Lion(params, lr=cfg.lr, weight_decay=cfg.weight_decay)
-        case _:
-            raise ValueError(f"Unknown optimizer: {cfg.optimizer!r}")
-```
+`TrainConfig` already exposes `optimizer: str = "AdamW"`. Add your new value to docs and examples.
 
-### 3. Use it
+### 3. Use it from CLI
 
 ```bash
 python -m optimus.train ... --optimizer SGD
@@ -422,6 +397,172 @@ That's it. The `Config.update_config()` method uses `dataclasses.asdict()` to sc
 # In pretrain.py or wherever relevant:
 my_value = self.train_config.my_new_param
 ```
+
+---
+
+## Implement Missing Configuration Options & Fix Known Issues
+
+This section tracks what has been fixed, what still needs implementation, and runtime bugs discovered.
+
+### Implemented Since Previous Audit
+
+1. ✅ `optimizer` is implemented via `build_optimizer()` in `optimus/trainer/optimizer_factory.py` and called from `Pretrain.__init__()` (line 68).
+2. ✅ `num_epochs` is now a real training loop bound in `Pretrain.train()` with multi-epoch iteration (line 128).
+3. ✅ `train.seed` now applies global RNG seeding in `optimus/train.py` with rank-aware offset (`seed + rank`).
+4. ✅ `skip_reload_tensorboard` reset behavior is fixed in `Pretrain.resume()` (line 398, now correctly resets itself).
+
+### Recently Fixed (Audit Round 3)
+
+1. ✅ **Eval context manager crash** — `nullcontext()` instantiated correctly at `optimus/trainer/pretrain.py:249`.
+2. ✅ **Eval split loading crash** — `self.eval_streams = None` initialization added at `optimus/trainer/data.py:61` to handle missing `eval.json`.
+3. ✅ **CosineAnnealingLR multi-epoch support** — T_max now multiplies by `num_epochs` at `optimus/trainer/pretrain.py:437-438`.
+
+### High-Priority Fixes Needed (Audit Round 9)
+
+1. **HuggingFace + variable-length batches incompatibility**
+
+**Location:** `optimus/trainer/data.py:163-196`, `optimus/trainer/pretrain.py:149-156,264-270`
+
+**Current (BROKEN when `huggingface_id` is set with `var_len=True`):**
+```python
+return {
+    "input_ids" if self.hf_model else "x": inputs,
+    "labels": labels,
+    "cu_seq_lens": cu_seq_lens,
+    "max_seqlen": lengths.max().item(),
+}
+
+# Later, HF path forwards full batch:
+loss, _ = self.model(**batch)
+```
+
+**Issue:** HF models typically accept `input_ids`, `attention_mask`, `labels` etc., but not `cu_seq_lens` / `max_seqlen`. Passing full variable-length batch dict can raise unexpected keyword argument errors.
+
+**Fix options:**
+```python
+# Option A: disable var_len for HF models
+if self.hf_model and self.data_config.var_len:
+    raise ValueError("var_len=True is not supported with huggingface_id models.")
+
+# Option B: filter batch keys before HF forward
+hf_batch = {k: v for k, v in batch.items() if k in {"input_ids", "labels", "attention_mask", "token_type_ids"}}
+loss, _ = self.model(**hf_batch)
+```
+
+---
+
+2. **Scheduler steps_per_epoch can be zero**
+
+**Location:** `optimus/trainer/pretrain.py:441,445,452`
+
+**Current (BROKEN for small dataloaders / high grad accumulation):**
+```python
+steps_per_epoch = len(self.data.train_dataloader) // self.train_config.gradient_accumulation_steps
+```
+
+**Issue:** Integer floor division can produce 0, which can break `OneCycleLR`/custom scheduler assumptions.
+
+**Fix:** Clamp to at least 1 and reuse shared variable:
+```python
+steps_per_epoch = max(
+    len(self.data.train_dataloader) // self.train_config.gradient_accumulation_steps,
+    1,
+)
+```
+
+---
+
+### High-Priority Fixes Already Implemented (Audit Round 9)
+
+1. **✅ Global microbatch counter for step_to_skip** (FIXED)
+   - Implemented at lines 122, 127, 163
+   - Replaces per-epoch calculation
+   - Works correctly across epochs and resume
+
+2. **✅ Eval native model batch format** (FIXED)
+   - Lines 267-273 extract x and labels correctly
+   - Works for both HF and native models
+
+3. **✅ Profiler early exit across loops** (FIXED)
+    - Uses early `return` to stop training after profiling
+    - No longer continues into later epochs
+
+4. **✅ Eval loss accumulation and averaging** (FIXED)
+    - Eval now accumulates `batch_loss` tensor and averages across batches
+    - Works for both HF and native branches
+
+5. **✅ `no_sync` guard for non-distributed runs** (FIXED)
+    - Uses distributed/method guard before calling `self.model.no_sync()`
+
+6. **✅ Skip-phase barrier guard** (FIXED)
+    - `dist.barrier()` in skip completion now only runs when distributed
+
+---
+
+### Medium-Priority Fixes Needed
+
+3. **Enforce data.length in collation/masking**
+
+**Location:** `optimus/trainer/data.py:147-195` (collate functions)
+
+**Current:** Length is only used for throughput accounting (`tokens_per_step`), never to truncate/pad sequences.
+
+**Fix:**
+- In `to_torch_collate_fn` and `to_torch_collate_var_len_fn`, check and enforce `self.data_config.length`.
+- For `var_len=False`: pad/truncate all sequences to exactly `length`.
+- For `var_len=True`: cap total sequence length to not exceed `length * batch_size`.
+
+---
+
+4. **Implement or remove fused_linear_cross_entropy**
+
+**Location:** `optimus/trainer/configuration/model.py:34`, `optimus/trainer/model/load.py`
+
+**Current:** Config field exists but is never consumed.
+
+**Options:**
+- **Option A:** Remove from `ModelConfig` if not planned.
+- **Option B:** Thread through `load.py` to encoder config and implement fused kernel logic in `TransformerEncoder.forward()`.
+
+---
+
+5. **Use `drop_last=False` for eval dataloader**
+
+**Location:** `optimus/trainer/data.py:141`
+
+**Current:** `drop_last=True` is applied to both train and eval dataloaders.
+
+**Issue:** Validation can silently ignore the final partial batch, biasing eval metrics.
+
+**Fix:** Make `drop_last` conditional by split:
+```python
+drop_last = not eval
+```
+
+or pass a split flag into `__create_dataloader`.
+
+---
+
+### Low-Priority Observations
+
+5. **Remaining steps calculation is not globally accurate**
+   - Location: `optimus/trainer/pretrain.py:237`
+    - Current formula multiplies by `num_epochs` and still uses current-epoch batch index
+   - Minor UX issue, not a functional bug
+
+### Validation & Testing Checklist (Updated)
+
+- [x] Test `step_to_skip` with global microbatch counter and multi-epoch (now working)
+- [x] Test `step_to_skip` with checkpoint resume (skip disabled correctly)
+- [x] Test eval path with `run_validation=False` (loading gated)
+- [x] Test eval path with `run_validation=True` and missing eval.json (gracefully skips)
+- [x] Test eval path with both native and HuggingFace models (branching fixed)
+- [x] Test CosineAnnealingLR with `num_epochs > 1` (LR correctly decays full training)
+- [x] **NEW**: Test gradient accumulation on single-process (no DDP/FSDP) with `gradient_accumulation_steps > 1`
+- [x] **NEW**: Test `step_to_skip > 0` on non-distributed run (barrier now guarded)
+- [ ] **NEW**: Test HF model with `var_len=True` (should fail fast or filter keys)
+- [ ] **NEW**: Test tiny dataset with large `gradient_accumulation_steps` (scheduler should still initialize)
+- [x] **NEW**: Test profiling exits correctly when `exit_end_profiling=True` (now fixed with early return)
 
 ---
 
