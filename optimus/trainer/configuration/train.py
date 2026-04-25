@@ -21,7 +21,7 @@ class TrainConfig:
     fused: bool | None = False
 
     lr_scheduler: str = "WarmupStableDecayLR"
-    pct_start: float = 0.01
+    pct_start: float = 0.05
     div_factor: int = 0
     end_start: float = 0
     final_div_factor: int = 0
@@ -35,10 +35,10 @@ class TrainConfig:
 
     # Validation configurations
     run_validation: bool = True
-    validation_step: int = 5000
+    validation_step: int = 200
 
     # Save configurations
-    save_step: int = 5000
+    save_step: int = 200
     save_model: bool = True
     save_optimizer: bool = True
     save_scheduler: bool = True
@@ -64,7 +64,8 @@ class TrainConfig:
     tensorboard: bool = True
     wandb: bool = True
     wandb_entity: Optional[str] = None
-    wandb_run_name: Optional[str] = None
+    wandb_id: Optional[str] = None
+    run_name: Optional[str] = None
     profile: bool = False
     exit_end_profiling: bool = True
     profiler_output: Literal["chrome", "tensorboard"] = "chrome"

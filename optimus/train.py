@@ -1,11 +1,10 @@
 import contextlib
+import os
 import fire
 import random
 import torch
 import torch.distributed as dist
 import torch.distributed.elastic.multiprocessing
-
-import wandb
 
 from optimus.trainer.configuration.configs import Config
 from optimus.trainer.data import Data, patch_spanner
@@ -31,6 +30,11 @@ def set_global_seed(base_seed: int, rank: int = 0) -> int:
 
 @torch.distributed.elastic.multiprocessing.errors.record
 def main(**kwargs):
+    # Pin GPU before anything else can initialise CUDA on the wrong device.
+    local_rank = int(os.environ.get("LOCAL_RANK", 0))
+    if torch.cuda.is_available():
+        torch.cuda.set_device(local_rank)
+
     # Load configurations
     config = Config(**kwargs)
 
@@ -65,11 +69,13 @@ def main(**kwargs):
 
     wandb_run = None
     if config.train.wandb and config.is_main_process:
+        import wandb
+
         wandb_run = wandb.init(
             entity=config.train.wandb_entity,
             project=config.train.project_name,
-            name=config.train.wandb_run_name,
-            id=config.train.wandb_run_name,
+            name=config.train.run_name,
+            id=config.train.wandb_id,
             config=config.__dict__,
             resume="allow",
             save_code=True,
@@ -90,7 +96,8 @@ def main(**kwargs):
         distributed.cleanup()
     config.log_print("Training completed successfully.")
 
-    wandb_run.finish() if wandb_run is not None else None
+    if wandb_run is not None:
+        wandb_run.finish()
 
     exit(0)
 

@@ -182,3 +182,9 @@ run/
 wandb/
 runs/
 UD_data/
+slurm_logs/
+base_command
+output/
+hf_modeling/
+venv2/
+venv_dec/

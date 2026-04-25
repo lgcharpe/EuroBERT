@@ -58,11 +58,11 @@ class Pretrain:
             )
         ):
             os.makedirs(
-                rf"{self.train_config.output_dir}/{self.train_config.project_name}/tensorboard",
+                rf"{self.train_config.output_dir}/{self.train_config.project_name}/{self.train_config.run_name}/tensorboard",
                 exist_ok=True,
             )
             self.writer = SummaryWriter(
-                rf"{self.train_config.output_dir}/{self.train_config.project_name}/tensorboard"
+                rf"{self.train_config.output_dir}/{self.train_config.project_name}/{self.train_config.run_name}/tensorboard"
             )
 
         self.optimizer = build_optimizer(self.model, self.train_config)
@@ -109,6 +109,7 @@ class Pretrain:
 
         # Initialize training parameters
         total_loss = 0
+        total_acc = 0
 
         # Only apply skip if NOT resuming (skip is one-time initialization cost)
         if self.train_config.reload_checkpoint is None:
@@ -153,11 +154,14 @@ class Pretrain:
                                     for key, value in batch.items()
                                 }
                                 loss, _ = self.model(**batch)
+                                acc = 0
                             else:
-                                _, loss = self.model(**batch, cache=self.cache)
+                                acc, loss = self.model(**batch, cache=self.cache)
+                            acc = acc / self.config.train.gradient_accumulation_steps
                             loss = loss / self.config.train.gradient_accumulation_steps
                         loss.backward()
                     total_loss += loss.detach().item()
+                    total_acc += acc.detach().item()
                     global_microbatch_idx += 1
 
                     # Training step
@@ -176,6 +180,7 @@ class Pretrain:
                             self.config.log_print(
                                 f"Step: {self.step}",
                                 f"Loss: {total_loss:.4f}",
+                                f"Accuracy: {total_acc:.4f}",
                                 f"Tokens/s: {(self.tokens_per_step / (end_time - start_time)):.2f}",
                                 f"Time/step (s): {(end_time - start_time):.2f}",
                                 f"Learning rate: {self.scheduler.get_last_lr()[0]}",
@@ -188,6 +193,7 @@ class Pretrain:
                             and self.step % self.train_config.log_every_n_steps == 0
                         ):
                             self.writer.add_scalar("Loss/train", total_loss, self.step)
+                            self.writer.add_scalar("Accuracy/train", total_acc, self.step)
                             self.writer.add_scalar("Gradient norm", grad_norm, self.step)
                             self.writer.add_scalar(
                                 "Learning rate", self.scheduler.get_last_lr()[0], self.step
@@ -210,13 +216,14 @@ class Pretrain:
                         ):
                             self.wandb_run.log(
                                 {
-                                        "Loss/train": total_loss,
-                                        "Gradient norm": grad_norm,
-                                        "Learning rate": self.scheduler.get_last_lr()[0],
+                                        "Train/Loss": total_loss,
+                                        "Train/Accuracy": total_acc,
+                                        "Train/Gradient norm": grad_norm,
+                                        "Train/Learning rate": self.scheduler.get_last_lr()[0],
                                         "Time/step in seconds": end_time - start_time,
-                                        "Tokens seen": self.tokens_per_step * self.step,
-                                        "Tokens seen/second": self.tokens_per_step / (end_time - start_time),
-                                        "Epoch": epoch,
+                                        "Train/Tokens seen": self.tokens_per_step * self.step,
+                                        "Time/Tokens seen/second": self.tokens_per_step / (end_time - start_time),
+                                        "Train/Epoch": epoch,
                                     },
                                     step=self.step
                                 )
@@ -246,6 +253,7 @@ class Pretrain:
 
                         start_time = end_time
                         total_loss = 0
+                        total_acc = 0
 
     def eval(self):
         """
@@ -259,6 +267,7 @@ class Pretrain:
         self.model.eval()
 
         loss = 0
+        acc = 0
         for batch in self.data.eval_dataloader:
             with torch.no_grad():
                 with autocast:
@@ -271,18 +280,24 @@ class Pretrain:
                     else:
                         x = batch["x"].to(device=self.model.device).contiguous()
                         labels = batch["labels"].to(device=self.model.device).contiguous()
-                        _, batch_loss = self.model(x, labels=labels, cache=self.cache)
+                        batch_acc, batch_loss = self.model(x, labels=labels, cache=self.cache)
+                        acc += batch_acc.detach()
                     loss += batch_loss.detach()
 
+
         loss /= len(self.data.eval_dataloader)
+        acc /= len(self.data.eval_dataloader)
         if self.train_config.fsdp or self.train_config.ddp:
             dist.all_reduce(loss, op=dist.ReduceOp.AVG)
+            dist.all_reduce(acc, op=dist.ReduceOp.AVG)
         if self.main_process:
             self.config.log_print("Validation loss:", loss.item())
+            self.config.log_print("Validation accuracy:", acc.item())
             if self.train_config.tensorboard:
-                self.writer.add_scalar("Loss/eval", loss, self.step)
+                self.writer.add_scalar("Loss/eval", loss.item(), self.step)
+                self.writer.add_scalar("Accuracy/eval", acc.item(), self.step)
             if self.train_config.wandb and self.wandb_run is not None:
-                self.wandb_run.log({"Loss/eval": loss}, step=self.step)
+                self.wandb_run.log({"Eval/Loss": loss.item(), "Eval/Accuracy": acc.item()}, step=self.step)
         self.model.train()
 
     # ----------------------
@@ -293,7 +308,7 @@ class Pretrain:
         """
         Save the model, optimizer, scheduler, dataloader state dicts and config.
         """
-        path = rf"{self.train_config.output_dir}/{self.train_config.project_name}/checkpoints/{self.step}/"
+        path = rf"{self.train_config.output_dir}/{self.train_config.project_name}/{self.train_config.run_name}/checkpoints/{self.step}/"
         os.makedirs(path, exist_ok=True)
         self.config.log_print(f"Saving checkpoint at steps: {self.step}.")
         self.config.log_print(f"Saving checkpoint at path: {path}")
@@ -504,7 +519,7 @@ class Pretrain:
     @contextlib.contextmanager
     def profiler(self) -> Generator[Optional[torch.profiler.profile], None, None]:
         profile_dir = (
-            rf"{self.train_config.output_dir}/{self.train_config.project_name}/profiler"
+            rf"{self.train_config.output_dir}/{self.train_config.project_name}/{self.train_config.run_name}/profiler"
         )
         os.makedirs(profile_dir, exist_ok=True)
 

@@ -46,6 +46,11 @@ def parse_args() -> argparse.Namespace:
         default=30522,
         help="Vocabulary size for the new tokenizer.",
     )
+    parser.add_argument(
+        "--streaming",
+        action="store_true",
+        help="Whether to load the HuggingFace dataset in streaming mode (only applicable if --hf-dataset-name is provided).",
+    )
     return parser.parse_args()
 
 
@@ -60,12 +65,17 @@ def get_training_corpus(args: argparse.Namespace, batch_size: int) -> Generator[
         for inp in inputs:
             for batch in dataset_module.get_text(inp, batch_size=batch_size):
                 yield [item["text"] for item in batch]
-    elif args.hf_dataset_name:
+    elif args.hf_dataset_name and not args.streaming:
         # Load dataset from HuggingFace
         raw_datasets = load_dataset(args.hf_dataset_name)
         dataset = raw_datasets["train"] if "train" in raw_datasets else raw_datasets["text"]
         for idx in range(0, len(dataset), batch_size):
             yield dataset[idx:idx + batch_size]["text"]
+    elif args.hf_dataset_name and args.streaming:
+        raw_datasets = load_dataset(args.hf_dataset_name, streaming=True)["train"]
+        raw_datasets = raw_datasets.batch(batch_size)
+        for batch in raw_datasets:
+            yield batch["text"]
     else:
         raise ValueError("Either --dataset-path and --dataset-type or --hf-dataset-name must be provided.")
 
@@ -73,7 +83,7 @@ def get_training_corpus(args: argparse.Namespace, batch_size: int) -> Generator[
 if __name__ == "__main__":
     args = parse_args()
 
-    training_corpus = get_training_corpus(args, batch_size=1000)
+    training_corpus = get_training_corpus(args, batch_size=10000)
 
     # Load the old tokenizer using HuggingFace's AutoTokenizer
     old_tokenizer = AutoTokenizer.from_pretrained(args.old_tokenizer)

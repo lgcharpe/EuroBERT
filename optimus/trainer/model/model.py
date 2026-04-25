@@ -14,24 +14,67 @@ from optimus.trainer.script.cache import Cache
 ### Import Optimized Modules ###
 ################################
 
-try:
-    import flash_attn
+# try:
+#     import flash_attn
 
-    FLASH_ATTN_AVAILABLE = True
-except ImportError:
-    FLASH_ATTN_AVAILABLE = False
+#     FLASH_ATTN_AVAILABLE = True
+# except ImportError:
+#     FLASH_ATTN_AVAILABLE = False
 
-try:
-    from liger_kernel.nn import (
-        LigerCrossEntropyLoss,
-        liger_rotary_pos_emb,
-    )
-    from liger_kernel.ops.swiglu import LigerSiLUMulFunction
+# try:
+#     from liger_kernel.transformers import (
+#         LigerCrossEntropyLoss,
+#         LigerFusedLinearCrossEntropyLoss,
+#         liger_rotary_pos_emb,
+#     )
+#     from liger_kernel.ops.swiglu import LigerSiLUMulFunction
 
-    LIGER_KERNEL_AVAILABLE = True
-except ImportError:
-    LIGER_KERNEL_AVAILABLE = False
+#     LIGER_KERNEL_AVAILABLE = True
+# except ImportError:
+#     LIGER_KERNEL_AVAILABLE = False
 
+
+# NOTE: flash_attn and liger_kernel are imported lazily to avoid
+# initialising CUDA at module-load time, which breaks multinode NCCL init.
+
+flash_attn = None
+FLASH_ATTN_AVAILABLE: bool | None = None
+
+LigerCrossEntropyLoss = None
+liger_rotary_pos_emb = None
+LigerSiLUMulFunction = None
+LIGER_KERNEL_AVAILABLE: bool | None = None
+
+
+def _ensure_flash_attn():
+    global flash_attn, FLASH_ATTN_AVAILABLE
+    if FLASH_ATTN_AVAILABLE is None:
+        try:
+            import flash_attn as _fa
+            flash_attn = _fa
+            FLASH_ATTN_AVAILABLE = True
+        except ImportError:
+            FLASH_ATTN_AVAILABLE = False
+    return FLASH_ATTN_AVAILABLE
+
+
+def _ensure_liger_kernel():
+    global LigerCrossEntropyLoss, liger_rotary_pos_emb, LigerSiLUMulFunction, LIGER_KERNEL_AVAILABLE
+    if LIGER_KERNEL_AVAILABLE is None:
+        try:
+            from liger_kernel.transformers import (
+                LigerCrossEntropyLoss as _LCE,
+                LigerFusedLinearCrossEntropyLoss,
+                liger_rotary_pos_emb as _lrpe,
+            )
+            from liger_kernel.ops.swiglu import LigerSiLUMulFunction as _LSMF
+            LigerCrossEntropyLoss = _LCE
+            liger_rotary_pos_emb = _lrpe
+            LigerSiLUMulFunction = _LSMF
+            LIGER_KERNEL_AVAILABLE = True
+        except ImportError:
+            LIGER_KERNEL_AVAILABLE = False
+    return LIGER_KERNEL_AVAILABLE
 
 #################################
 ### Transformer Encoder Model ###
@@ -46,6 +89,7 @@ class TransformerEncoder(nn.Module):
         final_layernorm: nn.Module,
         lm_head: nn.Linear,
         fused_cross_entropy: bool = False,
+        fused_linear_cross_entropy: bool = False
     ):
         super().__init__()
         self.embedding = embedding
@@ -53,10 +97,14 @@ class TransformerEncoder(nn.Module):
         self.final_layernorm = final_layernorm
         self.lm_head = lm_head
         self.fused_cross_entropy = fused_cross_entropy
+        self.fused_linear_cross_entropy = fused_linear_cross_entropy
 
-        if self.fused_cross_entropy:
-            assert LIGER_KERNEL_AVAILABLE, "Liger kernel is not available."
-            self.ligerCrossEntropy = LigerCrossEntropyLoss()
+        if self.fused_linear_cross_entropy:
+            _ensure_liger_kernel()
+            self.LigerFusedLinearCrossEntropy = LigerFusedLinearCrossEntropyLoss(return_token_accuracy=True)
+        elif self.fused_cross_entropy:
+            _ensure_liger_kernel()
+            self.ligerCrossEntropy = LigerCrossEntropyLoss(return_token_accuracy=True)
 
         self.apply(self._init_weights)
 
@@ -73,10 +121,10 @@ class TransformerEncoder(nn.Module):
     def forward(
         self,
         x: torch.Tensor,
+        labels: torch.Tensor,
         *,
         cu_seq_lens: tp.Optional[torch.Tensor] = None,
         max_seqlen: tp.Optional[int] = None,
-        labels: tp.Optional[torch.Tensor] = None,
         cache: tp.Optional[Cache] = None,
     ) -> tuple[tp.Optional[torch.Tensor], tp.Optional[torch.Tensor]]:
         # Model forward pass
@@ -89,20 +137,31 @@ class TransformerEncoder(nn.Module):
                 cache=cache,
             )
         h = self.final_layernorm(residuals)
-        h = self.lm_head(h)
-
-        # Model loss calculation
-        if labels is None:
-            return h, None
-        elif self.fused_cross_entropy:
-            with torch.autocast(device_type="cuda", enabled=False):
-                return h, self.ligerCrossEntropy(
-                    h.view(-1, h.size(-1)), labels.view(-1)
+        if self.fused_linear_cross_entropy:
+            with torch.autocast(device_type="cuda"):
+                output = self.LigerFusedLinearCrossEntropy(
+                    self.lm_head.weight, h.view(-1, h.size(-1)), labels.view(-1)
                 )
+                loss = output.loss
+                acc = output.token_accuracy
+                return acc, loss
         else:
-            labels = labels.to(h.device)
-            loss = F.cross_entropy(h.view(-1, h.size(-1)), labels.view(-1))
-            return h, loss
+            h = self.lm_head(h)
+
+            # Model loss calculation
+            if self.fused_cross_entropy:
+                with torch.autocast(device_type="cuda"):
+                    output = self.ligerCrossEntropy(
+                        h.view(-1, h.size(-1)), labels.view(-1)
+                    )
+                    loss = output.loss
+                    acc = output.token_accuracy
+                    return acc, loss
+            else:
+                labels = labels.to(h.device)
+                loss = F.cross_entropy(h.view(-1, h.size(-1)), labels.view(-1))
+                acc = (h.argmax(dim=-1) == labels).float().mean()
+                return acc, loss
 
 
 ####################################
@@ -202,6 +261,7 @@ class SelfAttention(nn.Module, abc.ABC):
         self.rope = rope
         self.flash = flash
         if self.flash:
+            _ensure_flash_attn()
             assert FLASH_ATTN_AVAILABLE, "Flash attention is not installed"
 
         num_proj = num_heads + 2 * num_kv_heads
@@ -429,6 +489,10 @@ class RoPE(nn.Module):
         self.block_size = block_size
         self.fused_rope = fused_rope
 
+        if fused_rope:
+            _ensure_liger_kernel()
+            assert LIGER_KERNEL_AVAILABLE, "Liger kernel is not available."
+
     # RoPE initialization
     def init_cache(
         self,
@@ -597,13 +661,14 @@ class SwigluMLP(nn.Module):
         self.dropout = nn.Dropout(dropout)
         self.fused_swiglu = fused_swiglu
         if fused_swiglu:
+            _ensure_liger_kernel()
+            assert LIGER_KERNEL_AVAILABLE, "Liger kernel is not available."
             assert not bias, "Fused SwiGLU does not support bias"
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x_fc_1 = self.fc_1(x)
         x_fc_2 = self.fc_2(x)
         if self.fused_swiglu:
-            assert LIGER_KERNEL_AVAILABLE, "Liger kernel is not available"
             x = LigerSiLUMulFunction.apply(x_fc_1, x_fc_2)
         else:
             x = torch.nn.functional.silu(x_fc_1) * x_fc_2

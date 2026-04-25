@@ -1,3 +1,4 @@
+import datetime
 import os
 import time
 
@@ -26,16 +27,34 @@ class Distributed:
         self.config = config
         self.distributed_config = config.distributed
 
+        torch.cuda.set_device(self.local_rank)
+
+        print(
+            f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] "
+            f"[Rank {self.rank}/{self.world_size}, Local {self.local_rank}] "
+            f"Calling init_process_group  "
+            f"MASTER_ADDR={os.environ.get('MASTER_ADDR')}  "
+            f"MASTER_PORT={os.environ.get('MASTER_PORT')}  "
+            f"cuda_device={torch.cuda.current_device()}",
+            flush=True,
+        )
+
         dist.init_process_group(
             backend="nccl",
+            timeout=datetime.timedelta(minutes=5),
         )
         self.main_process = True if self.rank == 0 else False
+
+        print(
+            f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] "
+            f"[Rank {self.rank}] init_process_group completed",
+            flush=True,
+        )
 
         dist.barrier()
         if config.verbose and self.main_process:
             config.log_print("All ranks initialized global process group.")
 
-        torch.cuda.set_device(self.local_rank)
         ModelTools.clear_gpu_cache()
 
         # Update config with distributed information.

@@ -9,8 +9,6 @@ from torch.distributed.fsdp.wrap import (
     transformer_auto_wrap_policy,
 )
 
-from optimus.trainer.model.model import Block
-
 
 @dataclass
 class DistributedConfig:
@@ -78,6 +76,8 @@ class DistributedConfig:
         if self._wrap_policy == "size_based_auto_wrap_policy":
             return functools.partial(size_based_auto_wrap_policy, min_num_params=20000)
         elif self._wrap_policy == "transformer_auto_wrap_policy":
+            from optimus.trainer.model.model import Block
+
             return functools.partial(
                 transformer_auto_wrap_policy,
                 transformer_layer_cls={Block},

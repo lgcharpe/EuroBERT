@@ -2,17 +2,32 @@ import torch
 
 from optimus.trainer.model import model
 
-try:
-    from liger_kernel.nn import LigerRMSNorm
+# try:
+#     from liger_kernel.transformers import LigerRMSNorm
 
-    LIGER_KERNEL_AVAILABLE = True
-except ImportError:
-    LIGER_KERNEL_AVAILABLE = False
+#     LIGER_KERNEL_AVAILABLE = True
+# except ImportError:
+#     LIGER_KERNEL_AVAILABLE = False
+
+LigerRMSNorm = None
+LIGER_KERNEL_AVAILABLE: bool | None = None
+
+
+def _ensure_liger_rms_norm():
+    global LigerRMSNorm, LIGER_KERNEL_AVAILABLE
+    if LIGER_KERNEL_AVAILABLE is None:
+        try:
+            from liger_kernel.transformers import LigerRMSNorm as _LRMSN
+            LigerRMSNorm = _LRMSN
+            LIGER_KERNEL_AVAILABLE = True
+        except ImportError:
+            LIGER_KERNEL_AVAILABLE = False
+    return LIGER_KERNEL_AVAILABLE
 
 
 eurobert_config = {
     "21m": {
-        "vocab_size": 30_522,
+        "vocab_size": 51_200,
         "embedding_size": 768,
         "num_head": 12,
         "num_kv_head": 12,
@@ -28,10 +43,11 @@ eurobert_config = {
         "fused_rope": False,
         "fused_swiglu": False,
         "fused_cross_entropy": False,
+        "fused_linear_cross_entropy": False,
         "tied_weights": False,
     },
-    "base_nor_lumi": {
-        "vocab_size": 30_522,
+    "test_lumi": {
+        "vocab_size": 51_200,
         "embedding_size": 768,
         "num_head": 12,
         "num_kv_head": 12,
@@ -47,6 +63,47 @@ eurobert_config = {
         "fused_rope": True,
         "fused_swiglu": True,
         "fused_cross_entropy": True,
+        "fused_linear_cross_entropy": False,
+        "tied_weights": False,
+    },
+    "base_nor_lumi": {
+        "vocab_size": 51_200,
+        "embedding_size": 768,
+        "num_head": 12,
+        "num_kv_head": 12,
+        "num_layer": 12,
+        "block_size": 2048,
+        "dropout": 0.0,
+        "mlp_hidden_dim": 3072,
+        "bias": False,
+        "rms_norm_eps": 1e-5,
+        "attn_impl": "flash",
+        "rope_base": 10_000,
+        "fused_rms_norm": True,
+        "fused_rope": True,
+        "fused_swiglu": True,
+        "fused_cross_entropy": True,
+        "fused_linear_cross_entropy": False,
+        "tied_weights": False,
+    },
+    "base_nor_lumi_clean": {
+        "vocab_size": 51_200,
+        "embedding_size": 768,
+        "num_head": 12,
+        "num_kv_head": 12,
+        "num_layer": 12,
+        "block_size": 2048,
+        "dropout": 0.0,
+        "mlp_hidden_dim": 3072,
+        "bias": False,
+        "rms_norm_eps": 1e-5,
+        "attn_impl": "torch",
+        "rope_base": 10_000,
+        "fused_rms_norm": False,
+        "fused_rope": False,
+        "fused_swiglu": False,
+        "fused_cross_entropy": False,
+        "fused_linear_cross_entropy": False,
         "tied_weights": False,
     },
     "210m": {
@@ -66,6 +123,7 @@ eurobert_config = {
         "fused_rope": False,
         "fused_swiglu": False,
         "fused_cross_entropy": False,
+        "fused_linear_cross_entropy": False,
         "tied_weights": False,
     },
     "610m": {
@@ -85,6 +143,7 @@ eurobert_config = {
         "fused_rope": False,
         "fused_swiglu": False,
         "fused_cross_entropy": False,
+        "fused_linear_cross_entropy": False,
         "tied_weights": False,
     },
     "2b": {
@@ -104,6 +163,7 @@ eurobert_config = {
         "fused_rope": False,
         "fused_swiglu": False,
         "fused_cross_entropy": False,
+        "fused_linear_cross_entropy": False,
         "tied_weights": False,
     },
 }
@@ -113,6 +173,7 @@ class EuroBERT(model.TransformerEncoder):
     def __init__(self, config):
         head_dim = config["embedding_size"] // config["num_head"]
         if config["fused_rms_norm"]:
+            _ensure_liger_rms_norm()
             assert (
                 LIGER_KERNEL_AVAILABLE
             ), "Liger kernel is not available. Please install it to use fused RMSNorm."
@@ -168,6 +229,7 @@ class EuroBERT(model.TransformerEncoder):
                 config["embedding_size"], config["vocab_size"], bias=config["bias"]
             ),
             fused_cross_entropy=config["fused_cross_entropy"],
+            fused_linear_cross_entropy=config["fused_linear_cross_entropy"],
         )
         # Tie the weights of the linear layer and the embedding layer
         if config["tied_weights"]:

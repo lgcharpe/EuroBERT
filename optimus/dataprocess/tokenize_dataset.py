@@ -131,8 +131,11 @@ def _worker(
             if tiktoken
             else tokenizer(texts)["input_ids"]
         )
-        eos_id = tokenizer.eos_id if tiktoken else tokenizer.eos_token_id
-        return [ids + [eos_id] for ids in input_ids]
+        if tiktoken:
+            eos_id = tokenizer.eos_id
+            return [ids + [eos_id] for ids in input_ids]
+        else:
+            return input_ids
 
     worker_id = output_dir.rstrip("/").split("/")[-1]
     print(f"({worker_id}): Worker started.", flush=True)
