@@ -119,6 +119,8 @@ class Data:
             mask_probability=self.mask_probability,
             random_probability=self.random_probability,
             tokenizer=self.tokenizer,
+            eos_token_id=self.tokenizer.eos_token_id,
+            doc_aware=self.data_config.doc_aware,
         )
 
     def __create_dataloader(self, dataset: StreamingDataset) -> StreamingDataLoader:
@@ -129,14 +131,23 @@ class Data:
         Returns:
             DataLoader: DataLoader object containing the data mix.
         """
+        if self.data_config.doc_aware:
+            collate_fn = (
+                self.to_torch_collate_doc_aware_hf_fn
+                if self.hf_model
+                else self.to_torch_collate_doc_aware_fn
+            )
+        elif self.data_config.var_len:
+            collate_fn = self.to_torch_collate_var_len_fn
+        else:
+            collate_fn = self.to_torch_collate_fn
+
         dataloader = StreamingDataLoader(
             dataset,
             batch_size=self.data_config.batch_size,
             num_workers=self.data_config.num_workers,
             prefetch_factor=self.data_config.prefetch_factor or None,
-            collate_fn=self.to_torch_collate_var_len_fn
-            if self.data_config.var_len
-            else self.to_torch_collate_fn,
+            collate_fn=collate_fn,
             pin_memory=self.data_config.pin_memory,
             drop_last=True,
         )
@@ -195,9 +206,94 @@ class Data:
             "max_seqlen": lengths.max().item(),
         }
 
+    def to_torch_collate_doc_aware_fn(self, batch):
+        """
+        Collate function with document-level attention masking for the optimus model.
+        Flattens all samples into a single 1D tensor with per-document cu_seq_lens,
+        so flash_attn_varlen_func produces block-diagonal attention within documents.
+        """
+        input_seqs, label_seqs, boundaries_list = zip(*batch)
+
+        # Build flat cu_seq_lens from per-sample doc boundaries
+        all_cu = [0]
+        offset = 0
+        max_doc_len = 0
+        for boundaries in boundaries_list:
+            for j in range(len(boundaries) - 1):
+                doc_len = boundaries[j + 1] - boundaries[j]
+                if doc_len > max_doc_len:
+                    max_doc_len = doc_len
+            for b in boundaries[1:]:
+                all_cu.append(offset + b)
+            offset = all_cu[-1]
+
+        cu_seq_lens = torch.tensor(all_cu, dtype=torch.int32)
+        inputs = torch.cat(
+            [torch.tensor(seq, dtype=torch.long) for seq in input_seqs], dim=0
+        )
+        labels = torch.cat(
+            [torch.tensor(seq, dtype=torch.long) for seq in label_seqs], dim=0
+        )
+
+        return {
+            "x": inputs,
+            "labels": labels,
+            "cu_seq_lens": cu_seq_lens,
+            "max_seqlen": max_doc_len,
+        }
+
+    def to_torch_collate_doc_aware_hf_fn(self, batch):
+        """
+        Collate function with document-level attention masking for HuggingFace models.
+        Produces a 4D block-diagonal attention_mask and per-document position_ids.
+        """
+        input_seqs, label_seqs, boundaries_list = zip(*batch)
+
+        inputs = torch.tensor(np.array(input_seqs), dtype=torch.long)
+        labels = torch.tensor(np.array(label_seqs), dtype=torch.long)
+        B, L = inputs.shape
+
+        # Build 4D block-diagonal attention mask [B, 1, L, L]
+        # 0.0 = attend, -inf = don't attend (additive mask for SDPA/eager)
+        attention_mask = torch.full((B, 1, L, L), float("-inf"))
+        position_ids = torch.zeros(B, L, dtype=torch.long)
+
+        for i, boundaries in enumerate(boundaries_list):
+            for j in range(len(boundaries) - 1):
+                s, e = boundaries[j], boundaries[j + 1]
+                attention_mask[i, 0, s:e, s:e] = 0.0
+                position_ids[i, s:e] = torch.arange(e - s)
+
+        return {
+            "input_ids": inputs,
+            "labels": labels,
+            "attention_mask": attention_mask,
+            "position_ids": position_ids,
+        }
+
     # ----------------------
     # Masking Dataset
     # ----------------------
+
+
+def _find_doc_boundaries(tokens: np.ndarray, eos_token_id: int) -> list[int]:
+    """Find document boundaries in a packed sequence by locating EOS tokens.
+
+    Each EOS token marks the end of a document. The boundary is placed right
+    after the EOS so the EOS belongs to its preceding document.
+
+    Returns:
+        List of boundary positions, e.g. [0, 106, 312, 2048] for 3 documents.
+        Always starts with 0 and ends with len(tokens).
+    """
+    eos_positions = np.where(tokens == eos_token_id)[0]
+    boundaries = [0]
+    for pos in eos_positions:
+        boundary = int(pos) + 1
+        if boundary < len(tokens):
+            boundaries.append(boundary)
+    boundaries.append(len(tokens))
+    return boundaries
 
 
 class MaskingDataset(StreamingDataset):
@@ -207,6 +303,8 @@ class MaskingDataset(StreamingDataset):
         mask_probability: float,
         random_probability: float,
         tokenizer,
+        eos_token_id: int = 1,
+        doc_aware: bool = False,
         *args,
         **kwargs,
     ):
@@ -214,11 +312,16 @@ class MaskingDataset(StreamingDataset):
         self.mlm_probability = mlm_probability
         self.mask_probability = mask_probability
         self.random_probability = random_probability
+        self.eos_token_id = eos_token_id
+        self.doc_aware = doc_aware
         super(MaskingDataset, self).__init__(*args, **kwargs)
 
     def __getitem__(self, index):
         item = super().__getitem__(index)
         inputs, labels = self.__masking_function(item["tokens"])
+        if self.doc_aware:
+            doc_boundaries = _find_doc_boundaries(item["tokens"], self.eos_token_id)
+            return inputs, labels, doc_boundaries
         return inputs, labels
 
     def __masking_function(self, item: Any) -> dict[str, Any]:

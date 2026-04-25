@@ -275,12 +275,17 @@ class Pretrain:
                         batch = {
                             key: value.to(device=self.model.device)
                             for key, value in batch.items()
+                            if isinstance(value, torch.Tensor)
                         }
                         batch_loss, _ = self.model(**batch)
                     else:
                         x = batch["x"].to(device=self.model.device).contiguous()
                         labels = batch["labels"].to(device=self.model.device).contiguous()
-                        batch_acc, batch_loss = self.model(x, labels=labels, cache=self.cache)
+                        extra_kwargs = {}
+                        if "cu_seq_lens" in batch:
+                            extra_kwargs["cu_seq_lens"] = batch["cu_seq_lens"].to(device=self.model.device)
+                            extra_kwargs["max_seqlen"] = batch["max_seqlen"]
+                        batch_acc, batch_loss = self.model(x, labels=labels, cache=self.cache, **extra_kwargs)
                         acc += batch_acc.detach()
                     loss += batch_loss.detach()
 

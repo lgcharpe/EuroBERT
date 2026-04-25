@@ -188,3 +188,5 @@ output/
 hf_modeling/
 venv2/
 venv_dec/
+uv.lock
+nccl*

@@ -11,6 +11,7 @@ class DatasetConfig:
     predownload: int = 1
     length: int = 2048
     var_len: bool = False
+    doc_aware: bool = False
     num_canonical_nodes: int = 0
     pin_memory: bool = True
     step_to_skip: int = 0
