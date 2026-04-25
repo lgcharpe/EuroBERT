@@ -1,0 +1,255 @@
+========= Language English =========
+Example sentence: Al-Zaman : American forces killed Shaikh Abdullah al-Ani, the preacher at the mosque in the town of Qaim, near the Syrian border.
+Tokenized sentence: Al | -Z | aman | Ġ: | ĠAmerican | Ġforces | Ġkilled | ĠSha | ikh | ĠAbdullah | Ġal | -An | i | , | Ġthe | Ġpreacher | Ġat | Ġthe | Ġmosque | Ġin | Ġthe | Ġtown | Ġof | ĠQ | aim | , | Ġnear | Ġthe | ĠSyrian | Ġborder | .
+
+Example sentence: They are merely imposters.
+Tokenized sentence: They | Ġare | Ġmerely | Ġimpost | ers | .
+
+Example sentence: Michael McDermott <Michael.McDermott@spectrongroup.com> on 06/01/2000 06:00:56 AM
+Tokenized sentence: Michael | ĠMcD | erm | ott | Ġ< | Michael | .M | c | D | erm | ott | @s | pect | rong | roup | .com | > | Ġon | Ġ | 06 | / | 01 | / | 200 | 0 | Ġ | 06 | : | 00 | : | 56 | ĠAM
+
+Example sentence: And his apartment is so run down down I'm afraid roaches might be crawling over the baby.
+Tokenized sentence: And | Ġhis | Ġapartment | Ġis | Ġso | Ġrun | Ġdown | Ġdown | ĠI | 'm | Ġafraid | Ġro | aches | Ġmight | Ġbe | Ġcrawling | Ġover | Ġthe | Ġbaby | .
+
+Example sentence: Please, let me know if you interested in introducing Peter to executives in your organization.
+Tokenized sentence: Please | , | Ġlet | Ġme | Ġknow | Ġif | Ġyou | Ġinterested | Ġin | Ġintroducing | ĠPeter | Ġto | Ġexecutives | Ġin | Ġyour | Ġorganization | .
+
+Example sentence: Thanks, Kim.
+Tokenized sentence: Thanks | , | ĠKim | .
+
+Example sentence: Feel that you're sitting there in complete peace, right on top of the world.
+Tokenized sentence: Feel | Ġthat | Ġyou | 're | Ġsitting | Ġthere | Ġin | Ġcomplete | Ġpeace | , | Ġright | Ġon | Ġtop | Ġof | Ġthe | Ġworld | .
+
+Example sentence: 88 - Percentage of workers at Ground Zero who Now suffer from ear, nose, or throat problems.
+Tokenized sentence: 88 | Ġ- | ĠPercentage | Ġof | Ġworkers | Ġat | ĠGround | ĠZero | Ġwho | ĠNow | Ġsuffer | Ġfrom | Ġear | , | Ġnose | , | Ġor | Ġthroat | Ġproblems | .
+
+Example sentence: there are many small details, that you would have to work on as you go for doors and windows and roof,
+Tokenized sentence: there | Ġare | Ġmany | Ġsmall | Ġdetails | , | Ġthat | Ġyou | Ġwould | Ġhave | Ġto | Ġwork | Ġon | Ġas | Ġyou | Ġgo | Ġfor | Ġdoors | Ġand | Ġwindows | Ġand | Ġroof | ,
+
+Example sentence: If you push it, it will never work.
+Tokenized sentence: If | Ġyou | Ġpush | Ġit | , | Ġit | Ġwill | Ġnever | Ġwork | .
+
+Example sentence: Definitely recommend!
+Tokenized sentence: Def | initely | Ġrecommend | !
+
+Example sentence: Yes, you still have a few bugs, but that's going to be anywhere you go!
+Tokenized sentence: Yes | , | Ġyou | Ġstill | Ġhave | Ġa | Ġfew | Ġbugs | , | Ġbut | Ġthat | 's | Ġgoing | Ġto | Ġbe | Ġanywhere | Ġyou | Ġgo | !
+
+Example sentence: it runs you about 4 bucks and it deals crushing blows to hunger.
+Tokenized sentence: it | Ġruns | Ġyou | Ġabout | Ġ | 4 | Ġbucks | Ġand | Ġit | Ġdeals | Ġcrushing | Ġblows | Ġto | Ġhunger | .
+
+Most common tokens: [('.', 8734), ('Ġthe', 8066), (',', 6860), ('Ġto', 5075), ('Ġand', 4787), ('Ġof', 3582), ('Ġa', 3579), ('Ġin', 2900), ('Ġ', 2409), ('Ġis', 2139)]
+Expected tokens per word: 1.1012821578183276
+========= Language Danish =========
+Example sentence: På fredag har SID inviteret til reception i SID-huset i anledning af at formanden Kjeld Christensen går ind i de glade tressere.
+Tokenized sentence: P | Ã¥ | Ġfred | ag | Ġhar | ĠSID | Ġinv | iter | et | Ġtil | Ġreception | Ġi | ĠSID | -h | uset | Ġi | Ġan | led | ning | Ġaf | Ġat | Ġform | anden | ĠK | j | eld | ĠChrist | ensen | ĠgÃ¥r | Ġind | Ġi | Ġde | Ġgl | ade | Ġt | ress | ere | .
+
+Example sentence: Hendes hjerte hamrede, så hun kunne mærke det i kroppen, men direkte ondt gjorde det ikke.
+Tokenized sentence: H | end | es | Ġhj | erte | Ġham | rede | , | ĠsÃ¥ | Ġhun | Ġkunne | Ġm | Ã¦r | ke | Ġdet | Ġi | Ġk | ropp | en | , | Ġmen | Ġdire | kte | Ġon | dt | Ġgj | orde | Ġdet | Ġikke | .
+
+Example sentence: Man springer ikke lige hjem i dobbeltsengen.
+Tokenized sentence: Man | Ġspring | er | Ġikke | Ġl | ige | Ġhjem | Ġi | Ġdo | bb | elts | eng | en | .
+
+Example sentence: "Søren er født året inden besættelsen, og jeg er født året efter.
+Tokenized sentence: "S | Ã¸ | ren | Ġer | ĠfÃ¸ | dt | ĠÃ¥ | ret | Ġind | en | Ġbes | Ã¦ | tt | elsen | , | Ġog | Ġjeg | Ġer | ĠfÃ¸ | dt | ĠÃ¥ | ret | Ġefter | .
+
+Example sentence: Han lo, men latteren tav i hans strube, da han et øjeblik efter begyndte at tænke nye tanker - meget pinefulde tanker.
+Tokenized sentence: Han | Ġlo | , | Ġmen | Ġlatter | en | Ġtav | Ġi | Ġhans | Ġstr | ube | , | Ġda | Ġhan | Ġet | ĠÃ¸ | j | eb | lik | Ġefter | Ġbeg | y | nd | te | Ġat | Ġt | Ã¦ | n | ke | Ġnye | Ġtanker | Ġ- | Ġmeget | Ġpine | ful | de | Ġtanker | .
+
+Most common tokens: [(',', 4715), ('.', 4109), ('Ġi', 2127), ('Ġog', 1884), ('Ġat', 1706), ('Ã¦', 1607), ('Ġfor', 1435), ('Ġer', 1405), ('Ġen', 1254), ('Ã¸', 1246)]
+Expected tokens per word: 1.7432879643683594
+========= Language Faroese =========
+Example sentence: Í fyrstuni var orðið, og orðið var hjá Guði, og orðið var Guð.
+Tokenized sentence: Ãį | Ġf | yr | st | uni | Ġvar | Ġor | Ã° | i | Ã° | , | Ġog | Ġor | Ã° | i | Ã° | Ġvar | Ġhj | Ã¡ | ĠGu | Ã° | i | , | Ġog | Ġor | Ã° | i | Ã° | Ġvar | ĠGu | Ã° | .
+
+Example sentence: Hann sigur við hann: " Ja, Harri, tú veitst, at eg eri góður við teg."
+Tokenized sentence: H | ann | Ġsig | ur | Ġvi | Ã° | Ġhann | : | Ġ" | ĠJa | , | ĠHar | ri | , | ĠtÃº | Ġve | it | st | , | Ġat | Ġeg | Ġer | i | ĠgÃ³ | Ã° | ur | Ġvi | Ã° | Ġteg | ."
+
+Most common tokens: [('Ã°', 2667), (',', 1904), ('i', 908), ('ur', 897), ('ir', 809), ('Ġog', 778), ('Ġhann', 704), ('um', 650), ('.', 588), ('Ġat', 585)]
+Expected tokens per word: 1.7818480990733523
+========= Language Icelandic =========
+Example sentence: Virðulegi forseti. Ég þakka hv. þingmanni fyrir ræðuna, hún var fróðleg fyrir nýjan þingmann eins og mig.
+Tokenized sentence: Vir | Ã° | ule | gi | Ġfor | set | i | . | ĠÃī | g | ĠÃ¾ | ak | ka | Ġhv | . | ĠÃ¾ | ing | mann | i | Ġf | yr | ir | Ġr | Ã¦ | Ã° | una | , | Ġh | Ãºn | Ġvar | Ġfr | Ã³ | Ã° | leg | Ġf | yr | ir | Ġn | Ã½ | jan | ĠÃ¾ | ing | mann | Ġeins | Ġog | Ġmig | .
+
+Example sentence: Virðulegi forseti. Ég vil þakka hv. þm. Pétri H. Blöndal fyrir afskaplega skemmtilega spurningu.
+Tokenized sentence: Vir | Ã° | ule | gi | Ġfor | set | i | . | ĠÃī | g | Ġvil | ĠÃ¾ | ak | ka | Ġhv | . | ĠÃ¾ | m | . | ĠPÃ© | tri | ĠH | . | ĠBl | Ã¶ | nd | al | Ġf | yr | ir | Ġafs | kap | leg | a | Ġsk | em | mt | ile | ga | Ġsp | urn | ingu | .
+
+Example sentence: Við erum að fara þá leið með þessu frumvarpi Forseti hringir. og líka hinu sem vonandi kemur aldrei til umræðu í þinginu.
+Tokenized sentence: Vi | Ã° | Ġer | um | Ġa | Ã° | Ġfar | a | ĠÃ¾ | Ã¡ | Ġlei | Ã° | Ġme | Ã° | ĠÃ¾ | ess | u | Ġfr | um | var | pi | ĠFor | set | i | Ġh | ring | ir | . | Ġog | ĠlÃŃ | ka | Ġhin | u | Ġsem | Ġvon | andi | Ġkem | ur | Ġald | rei | Ġtil | Ġum | r | Ã¦ | Ã° | u | ĠÃŃ | ĠÃ¾ | ing | inu | .
+
+Most common tokens: [('Ã°', 14207), ('ĠÃ¾', 5057), ('Ġa', 3719), ('a', 3462), ('.', 3424), ('i', 2239), ('ĠÃŃ', 1990), ('ĠÃ¡', 1984), ('um', 1838), ('ir', 1763)]
+Expected tokens per word: 2.388540183771192
+========= Language Bokmaal =========
+Example sentence: Lam og piggvar på bryllupsmenyen
+Tokenized sentence: L | am | Ġog | Ġp | igg | var | ĠpÃ¥ | Ġb | ry | ll | up | sm | eny | en
+
+Example sentence: Det var nok en og annen i rødt og hvitt som mente det siste.
+Tokenized sentence: Det | Ġvar | Ġnok | Ġen | Ġog | Ġann | en | Ġi | Ġr | Ã¸ | dt | Ġog | Ġhv | itt | Ġsom | Ġmente | Ġdet | Ġs | iste | .
+
+Example sentence: Det betyr blant annet at brukerne av Navs tjenester ikke har mottatt de utbetalinger de har krav på, og at Navs internkontroll ikke har oppdaget feilene.
+Tokenized sentence: Det | Ġbet | yr | Ġbl | ant | Ġann | et | Ġat | Ġbruk | erne | Ġav | ĠNav | s | Ġt | jen | ester | Ġikke | Ġhar | Ġm | ott | att | Ġde | Ġut | b | etal | inger | Ġde | Ġhar | Ġkr | av | ĠpÃ¥ | , | Ġog | Ġat | ĠNav | s | Ġintern | kont | roll | Ġikke | Ġhar | Ġopp | dag | et | Ġfe | il | ene | .
+
+Example sentence: Komiker George Carlin brukte halve karrièren sin til å samle på slike «oxymorons».
+Tokenized sentence: Kom | iker | ĠGeorge | ĠCar | lin | Ġbruk | te | Ġhal | ve | Ġkar | ri | Ã¨ | ren | Ġsin | Ġtil | ĠÃ¥ | Ġsam | le | ĠpÃ¥ | Ġs | like | ĠÂ« | ox | ym | or | ons | Â».
+
+Example sentence: Kan det offentlige i større grad kreve at bevilgninger inneholder krav om tiltak for å nå et større publikum?
+Tokenized sentence: K | an | Ġdet | Ġoff | ent | lige | Ġi | ĠstÃ¸r | re | Ġgrad | Ġkre | ve | Ġat | Ġbe | vil | g | ninger | Ġinne | holder | Ġkr | av | Ġom | Ġtilt | ak | Ġfor | ĠÃ¥ | ĠnÃ¥ | Ġet | ĠstÃ¸r | re | Ġpublik | um | ?
+
+Example sentence: Leser en god stund.
+Tokenized sentence: Les | er | Ġen | Ġgod | Ġst | und | .
+
+Example sentence: Det gir Obama 290 valgmannstemmer.
+Tokenized sentence: Det | Ġgir | ĠObama | Ġ | 290 | Ġval | g | mann | stem | mer | .
+
+Example sentence: Norske forlag ser ut til å ha tusenvis av Gutenbergere på lønningslisten, og derfor later de som de ikke ser en tsunami av forandringer som fosser mot bransjen.
+Tokenized sentence: N | ors | ke | Ġfor | lag | Ġser | Ġut | Ġtil | ĠÃ¥ | Ġha | Ġtus | en | vis | Ġav | ĠGutenberg | ere | ĠpÃ¥ | ĠlÃ¸ | nn | ings | listen | , | Ġog | Ġder | for | Ġlater | Ġde | Ġsom | Ġde | Ġikke | Ġser | Ġen | Ġtsunami | Ġav | Ġfor | andr | inger | Ġsom | Ġfos | ser | Ġmot | Ġbr | ans | jen | .
+
+Example sentence: Elise merker at Espen er full, og spør om de ikke skal stoppe hjemme hos henne og se en film, i stedet for å dra til byen.
+Tokenized sentence: El | ise | Ġmer | ker | Ġat | ĠEsp | en | Ġer | Ġfull | , | Ġog | Ġsp | Ã¸r | Ġom | Ġde | Ġikke | Ġskal | Ġstop | pe | Ġhjem | me | Ġhos | Ġhenne | Ġog | Ġse | Ġen | Ġfilm | , | Ġi | Ġst | ed | et | Ġfor | ĠÃ¥ | Ġdra | Ġtil | Ġby | en | .
+
+Example sentence: - Mye ligger bare i en tåkedis.
+Tokenized sentence: - | ĠMy | e | Ġl | igger | Ġbare | Ġi | Ġen | Ġt | Ã¥ | k | edis | .
+
+Example sentence: Hvis du orker.
+Tokenized sentence: H | vis | Ġdu | Ġor | ker | .
+
+Example sentence: - Og hva er det å være menneskelig?
+Tokenized sentence: - | ĠOg | Ġhva | Ġer | Ġdet | ĠÃ¥ | ĠvÃ¦re | Ġmennes | kelig | ?
+
+Example sentence: Riktignok fikk Sp en måling på 8,4 prosent i Aftenposten i går, opp 2,4 prosentpoeng fra forrige måling, og 0,4 prosentpoeng høyere enn kommunevalget i 2007, men nær sagt alle andre målinger, ikke minst lokale, viser faretruende lave tall for Senterpartiet.
+Tokenized sentence: R | ikt | ign | ok | Ġf | ikk | ĠSp | Ġen | ĠmÃ¥ | ling | ĠpÃ¥ | Ġ | 8 | , | 4 | Ġpros | ent | Ġi | ĠA | ften | post | en | Ġi | ĠgÃ¥r | , | Ġopp | Ġ | 2 | , | 4 | Ġpros | ent | po | eng | Ġfra | Ġfor | r | ige | ĠmÃ¥ | ling | , | Ġog | Ġ | 0 | , | 4 | Ġpros | ent | po | eng | Ġh | Ã¸y | ere | Ġenn | Ġkomm | une | val | get | Ġi | Ġ | 200 | 7 | , | Ġmen | ĠnÃ¦r | Ġsagt | Ġalle | Ġandre | ĠmÃ¥ | linger | , | Ġikke | Ġmin | st | Ġlokale | , | Ġvis | er | Ġfare | tru | ende | Ġl | ave | Ġtall | Ġfor | ĠS | enter | part | iet | .
+
+Example sentence: I St meld nr 22 (1994-95) gikk Regjeringen inn for å opprette en egen miljøvernavdeling hos sysselmannen, slik det er hos fylkesmennene på fastlandet.
+Tokenized sentence: I | ĠSt | Ġmeld | Ġnr | Ġ | 22 | Ġ( | 199 | 4 | - | 95 | ) | Ġg | ikk | ĠReg | j | ering | en | Ġinn | Ġfor | ĠÃ¥ | Ġopp | rette | Ġen | Ġe | gen | Ġmil | j | Ã¸ | ver | nav | del | ing | Ġhos | Ġsy | ssel | mann | en | , | Ġslik | Ġdet | Ġer | Ġhos | Ġf | yl | kes | m | enn | ene | ĠpÃ¥ | Ġfast | land | et | .
+
+Example sentence: Nå forstår jeg statsråden dit hen at hun ikke her i dag vil si at hun vil endre den, men jeg forstår at hun er åpen for at det kan skje.
+Tokenized sentence: N | Ã¥ | Ġfor | st | Ã¥r | Ġjeg | Ġstats | rÃ¥ | den | Ġdit | Ġhen | Ġat | Ġhun | Ġikke | Ġher | Ġi | Ġdag | Ġvil | Ġsi | Ġat | Ġhun | Ġvil | Ġend | re | Ġden | , | Ġmen | Ġjeg | Ġfor | st | Ã¥r | Ġat | Ġhun | Ġer | ĠÃ¥ | pen | Ġfor | Ġat | Ġdet | Ġkan | Ġsk | je | .
+
+Example sentence: Økte skatter, lavere lønninger og en konkret plan for å redusere antallet ansatte i offentlig sektor med en femdel innen 2015.
+Tokenized sentence: Ãĺ | kte | Ġsk | atter | , | Ġlav | ere | ĠlÃ¸ | n | ninger | Ġog | Ġen | Ġkonk | ret | Ġplan | Ġfor | ĠÃ¥ | Ġred | us | ere | Ġant | allet | Ġans | atte | Ġi | Ġoff | ent | lig | Ġse | ktor | Ġmed | Ġen | Ġfem | del | Ġinn | en | Ġ | 201 | 5 | .
+
+Most common tokens: [('.', 13427), (',', 9077), ('Ġi', 6195), ('Ġog', 5966), ('Ġer', 4866), ('Ġfor', 4399), ('en', 4052), ('Ġtil', 3846), ('Ġsom', 3769), ('Ġdet', 3706)]
+Expected tokens per word: 1.716330580681138
+========= Language Nynorsk =========
+Example sentence: Nokre refleksjonar på vegen, om Paulus og " worldviews "
+Tokenized sentence: N | ok | re | Ġref | le | ks | jon | ar | ĠpÃ¥ | Ġv | egen | , | Ġom | ĠPaul | us | Ġog | Ġ" | Ġworld | views | Ġ"
+
+Example sentence: - Ja.
+Tokenized sentence: - | ĠJa | .
+
+Example sentence: Dei må også forsterke bygningskontrollen, slik at energiforbruket faktisk blir så lågt som krava tilseier.
+Tokenized sentence: De | i | ĠmÃ¥ | ĠogsÃ¥ | Ġfor | ster | ke | Ġby | gn | ings | kont | roll | en | , | Ġslik | Ġat | Ġenerg | if | or | br | uk | et | Ġfakt | isk | Ġblir | ĠsÃ¥ | ĠlÃ¥ | gt | Ġsom | Ġkr | ava | Ġtil | se | ier | .
+
+Example sentence: Komponisten, som har laga alt frå oratorium og messe, viser og songar for born, musikken til filmen Kamilla og Tyven, musikk til fleire fjernsynsseriar og fjernsynsprogram heime og ute, spelar sjølv keyboard.
+Tokenized sentence: Kom | pon | isten | , | Ġsom | Ġhar | Ġl | aga | Ġalt | Ġfr | Ã¥ | Ġor | atorium | Ġog | Ġmes | se | , | Ġvis | er | Ġog | Ġsong | ar | Ġfor | Ġborn | , | Ġmus | ik | ken | Ġtil | Ġfilm | en | ĠKam | illa | Ġog | ĠTy | ven | , | Ġmus | ikk | Ġtil | Ġfle | ire | Ġfj | ern | syn | ss | er | iar | Ġog | Ġfj | ern | syn | s | program | Ġhe | ime | Ġog | Ġ | ute | , | Ġspel | ar | Ġsj | Ã¸ | lv | Ġkeyboard | .
+
+Example sentence: Ei av dei bitraste og mest kjensleladde konfliktlinene i det norske samfunnet er mest ikkje omtala.
+Tokenized sentence: E | i | Ġav | Ġdei | Ġbit | r | aste | Ġog | Ġmest | Ġkj | ens | le | lad | de | Ġkon | f | li | kt | lin | ene | Ġi | Ġdet | Ġnorske | Ġsam | fun | net | Ġer | Ġmest | Ġik | k | je | Ġo | mt | ala | .
+
+Example sentence: - Tyskarane er nøgne, tek seg altfor god tid og har vanskeleg for å avgjera kva dei vil.
+Tokenized sentence: - | ĠT | ys | kar | ane | Ġer | ĠnÃ¸ | gne | , | Ġtek | Ġseg | Ġalt | for | Ġgod | Ġtid | Ġog | Ġhar | Ġvans | ke | leg | Ġfor | ĠÃ¥ | Ġavg | j | era | Ġk | va | Ġdei | Ġvil | .
+
+Example sentence: Underskotet etter Tall Ships Races i Måløy er komme opp i nesten 16 millionar kroner.
+Tokenized sentence: Und | ers | k | ot | et | Ġetter | ĠTall | ĠShips | ĠRaces | Ġi | ĠM | Ã¥l | Ã¸y | Ġer | Ġkom | me | Ġopp | Ġi | Ġnest | en | Ġ | 16 | Ġmillion | ar | Ġkron | er | .
+
+Example sentence: Send bilete som epost til redaksjon@firda.no eller som MMS til 2005 med kodeord FITIPS i tekstfeltet.
+Tokenized sentence: Send | Ġbile | te | Ġsom | Ġe | post | Ġtil | Ġred | aks | jon | @ | f | ird | a | .no | Ġeller | Ġsom | ĠM | MS | Ġtil | Ġ | 200 | 5 | Ġmed | Ġkode | ord | ĠFIT | IPS | Ġi | Ġtekst | felt | et | .
+
+Example sentence: I 1980 blir Reagan vald til USAs president.
+Tokenized sentence: I | Ġ | 198 | 0 | Ġblir | ĠReagan | Ġval | d | Ġtil | ĠUS | As | Ġpresident | .
+
+Example sentence: Ho meiner det er svært interessant at Sverige legg om sitt system.
+Tokenized sentence: Ho | Ġmeiner | Ġdet | Ġer | Ġsv | Ã¦ | rt | Ġinteress | ant | Ġat | ĠS | verige | Ġleg | g | Ġom | Ġs | itt | Ġsystem | .
+
+Example sentence: Om ein er usamd i vår linje, er det heilt naturleg at ein meiner vi bør gå.
+Tokenized sentence: Om | Ġein | Ġer | Ġus | amd | Ġi | ĠvÃ¥r | Ġlin | je | , | Ġer | Ġdet | Ġhe | ilt | Ġnatur | leg | Ġat | Ġein | Ġmeiner | Ġvi | Ġb | Ã¸r | ĠgÃ¥ | .
+
+Example sentence: Ei ny lov må også utformast slik at ho tek omsyn til den særlege norske språksituasjonen med to likeverdige målformer.
+Tokenized sentence: E | i | Ġny | Ġlov | ĠmÃ¥ | ĠogsÃ¥ | Ġut | form | ast | Ġslik | Ġat | Ġho | Ġtek | Ġo | ms | yn | Ġtil | Ġden | Ġs | Ã¦r | lege | Ġnorske | Ġspr | Ã¥ | ks | itu | asjon | en | Ġmed | Ġto | Ġlike | ver | d | ige | ĠmÃ¥ | l | former | .
+
+Example sentence: Vest-Telemarkrådet (VTR) kom i januar med utspel om at alle dei 26 millionar kronene måtte gå til dei kommunane der arbeidsgjevaravgifta auka mellom anna for næringslivet.
+Tokenized sentence: V | est | - | Te | lem | ark | rÃ¥ | det | Ġ( | V | TR | ) | Ġkom | Ġi | Ġjan | uar | Ġmed | Ġut | sp | el | Ġom | Ġat | Ġalle | Ġdei | Ġ | 26 | Ġmillion | ar | Ġkron | ene | ĠmÃ¥ | tte | ĠgÃ¥ | Ġtil | Ġdei | Ġkommun | ane | Ġder | Ġarbe | id | sg | je | var | avg | ift | a | Ġa | uka | Ġmell | om | Ġann | a | Ġfor | ĠnÃ¦r | ings | liv | et | .
+
+Example sentence: Kan ikkje kvile
+Tokenized sentence: K | an | Ġik | k | je | Ġkv | ile
+
+Example sentence: Ni smågutelag var fordelt i to puljer i innleiande spel.
+Tokenized sentence: Ni | ĠsmÃ¥ | g | ut | el | ag | Ġvar | Ġford | elt | Ġi | Ġto | Ġpul | jer | Ġi | Ġinn | lei | ande | Ġspel | .
+
+Most common tokens: [('.', 12341), (',', 9313), ('Ġi', 7216), ('Ġog', 6524), ('k', 5310), ('Ã¥', 4937), ('Ġer', 4719), ('ar', 4564), ('Ġtil', 4434), ('Ġdet', 4253)]
+Expected tokens per word: 1.819206782700852
+========= Language Sami =========
+Example sentence: Golbma čáppa, doaimmalaš nieidda livžo áhčiset riegádanbeaivve.
+Tokenized sentence: G | ol | b | ma | ĠÄįÃ¡ | pp | a | , | Ġdo | aim | m | ala | Å¡ | Ġnie | idd | a | Ġliv | Å¾ | o | ĠÃ¡ | h | Äį | iset | Ġr | ieg | Ã¡ | dan | be | a | iv | ve | .
+
+Example sentence: Guldalehket!
+Tokenized sentence: G | ul | dale | h | ket | !
+
+Example sentence: Mun dat lean.
+Tokenized sentence: M | un | Ġdat | Ġlean | .
+
+Most common tokens: [('.', 1936), ('Ã¡', 1511), ('a', 924), ('at', 838), ('Ġle', 785), ('ii', 603), ('Äĳ', 518), (',', 481), ('Å¡', 480), ('ht', 476)]
+Expected tokens per word: 2.6721710721710723
+========= Language Swedish =========
+Example sentence: Visa alla
+Tokenized sentence: Vis | a | Ġalla
+
+Example sentence: James Eichelberger, en statsvetare vid SUD som hade varit direktör i J Walter Thompson, en av världens största reklam- och PR-firmor, "skickades till Kairo där han talade med Nasser och hans rådgivare och producerade en rad rapporter som preciserade den nya regimens problem och rekommenderade politiska åtgärder för att ta itu med dem".
+Tokenized sentence: James | ĠE | ichel | berger | , | Ġen | Ġstats | vet | are | Ġvid | ĠS | UD | Ġsom | Ġhade | Ġvar | it | Ġdirekt | Ã¶r | Ġi | ĠJ | ĠWalter | ĠThompson | , | Ġen | Ġav | Ġv | Ã¤r | ld | ens | Ġst | Ã¶r | sta | Ġreklam | - | Ġoch | ĠPR | -f | irm | or | , | Ġ" | sk | ick | ades | Ġtill | ĠK | airo | ĠdÃ¤r | Ġhan | Ġtal | ade | Ġmed | ĠN | asser | Ġoch | Ġhans | Ġr | Ã¥ | dg | iv | are | Ġoch | Ġproducer | ade | Ġen | Ġrad | Ġrapport | er | Ġsom | Ġprec | iser | ade | Ġden | Ġnya | Ġreg | imens | Ġproblem | Ġoch | Ġrek | omm | ender | ade | Ġpolit | iska | ĠÃ¥ | tg | Ã¤r | der | ĠfÃ¶r | Ġatt | Ġta | Ġitu | Ġmed | Ġdem | ".
+
+Example sentence: Och på sitt sätt gjorde hon det. De följde nämligen en regel som var så djupt inrotad, så självklar att de aldrig hade diskuterat den:
+Tokenized sentence: O | ch | ĠpÃ¥ | Ġs | itt | Ġs | Ã¤tt | Ġgj | orde | Ġhon | Ġdet | . | ĠDe | ĠfÃ¶ | lj | de | ĠnÃ¤ | ml | igen | Ġen | Ġreg | el | Ġsom | Ġvar | ĠsÃ¥ | Ġdj | upt | Ġin | rot | ad | , | ĠsÃ¥ | Ġsj | Ã¤ | lv | kl | ar | Ġatt | Ġde | Ġal | dr | ig | Ġhade | Ġdisk | uter | at | Ġden | :
+
+Example sentence: Den utsålda kryssningen, i sig påminnande om en foie gras-fest, var fullpackad av ateister på mysteriejakt.
+Tokenized sentence: Den | Ġ | uts | Ã¥ | lda | Ġkry | ss | ningen | , | Ġi | Ġsig | ĠpÃ¥ | min | n | ande | Ġom | Ġen | Ġfo | ie | Ġgras | -f | est | , | Ġvar | Ġfull | pack | ad | Ġav | Ġate | ister | ĠpÃ¥ | Ġmyster | iej | akt | .
+
+Most common tokens: [('.', 3032), (',', 2280), ('Ġoch', 1759), ('Ġatt', 1391), ('Ġen', 1264), ('Ġi', 1262), ('Ġsom', 1167), ('ade', 1094), ('ĠfÃ¶r', 992), ('Ã¥', 976)]
+Expected tokens per word: 1.7320791540688838
+========= Language Finnish =========
+Example sentence: Kävelyreitti III
+Tokenized sentence: K | Ã¤ | vely | re | itti | ĠIII
+
+Example sentence: Kyljysten ja kasvisten kanssa syötiin vielä reilusti herneenversoilla höystettyä tavallista vihersalaattia.
+Tokenized sentence: K | yl | j | yst | en | Ġja | Ġkas | v | isten | Ġkans | sa | Ġsy | Ã¶ | ti | in | Ġviel | Ã¤ | Ġre | il | ust | i | Ġher | ne | en | vers | o | illa | ĠhÃ¶ | yst | etty | Ã¤ | Ġtav | all | ista | Ġvi | h | ers | ala | att | ia | .
+
+Example sentence: CEIOPS:llä on kuitenkin tärkeä direktiivin 21 artiklan 2 kohtaan liittyvä tehtävä, ja valvojien "on tehtävä tiivistä yhteistyötä ammatillisia lisäeläkkeitä tarjoavien laitosten toiminnan valvonnan helpottamiseksi".
+Tokenized sentence: CE | I | OPS | : | ll | Ã¤ | Ġon | Ġk | uiten | kin | Ġt | Ã¤r | ke | Ã¤ | Ġdirekt | i | iv | in | Ġ | 21 | Ġart | ik | lan | Ġ | 2 | Ġko | ht | aan | Ġli | itty | vÃ¤ | Ġte | ht | Ã¤ | vÃ¤ | , | Ġja | Ġval | voj | ien | Ġ" | on | Ġte | ht | Ã¤ | vÃ¤ | Ġti | ivist | Ã¤ | Ġy | hte | isty | Ã¶t | Ã¤ | Ġam | mat | ill | isia | Ġlis | Ã¤ | el | Ã¤ | k | keit | Ã¤ | Ġtar | jo | av | ien | Ġla | it | osten | Ġto | im | inn | an | Ġval | von | nan | Ġhelp | ott | am | ise | ksi | ".
+
+Example sentence: Tämä ystävyys oli verrattain nuori, vasta kaksikymmentäviisi vuotta vanha, ensimmäinen solmittu ystävyyssuhde uudessa maassa.
+Tokenized sentence: T | Ã¤m | Ã¤ | Ġy | st | Ã¤ | vy | ys | Ġoli | Ġverr | att | ain | Ġnu | ori | , | Ġvast | a | Ġk | aks | ik | ym | ment | Ã¤ | vi | isi | Ġvu | otta | Ġvan | ha | , | Ġens | imm | Ã¤ | inen | Ġsol | mitt | u | Ġy | st | Ã¤ | v | yy | ss | uh | de | Ġu | ud | essa | Ġma | assa | .
+
+Example sentence: Ryöväreillä oli resuiset vaatteet eikä heidän aseistuksessaan ollut kehumista.
+Tokenized sentence: R | y | Ã¶ | v | Ã¤re | ill | Ã¤ | Ġoli | Ġres | uis | et | Ġva | atte | et | Ġe | ik | Ã¤ | Ġhe | id | Ã¤n | Ġa | se | ist | u | ks | essa | an | Ġo | ll | ut | Ġke | hum | ista | .
+
+Example sentence: Hän tulee viiden ja kuuden välissä.
+Tokenized sentence: H | Ã¤n | Ġt | ule | e | Ġvi | iden | Ġja | Ġku | uden | ĠvÃ¤l | iss | Ã¤ | .
+
+Example sentence: Mutta ei se ole selitys.
+Tokenized sentence: Mut | ta | Ġei | Ġse | Ġole | Ġsel | ity | s | .
+
+Example sentence: Kaappaamme matkaan kahvia, voileipää ja limonadipullot ja istahdamme pöydän ääreen turinoimaan.
+Tokenized sentence: Ka | appa | am | me | Ġmat | ka | an | Ġkah | via | , | Ġvo | ile | ip | Ã¤Ã¤ | Ġja | Ġlim | on | ad | ip | ull | ot | Ġja | Ġist | ah | dam | me | Ġp | Ã¶ | yd | Ã¤n | ĠÃ¤ | Ã¤ | reen | Ġtur | ino | ima | an | .
+
+Example sentence: Osakkeet halventuivat keskiviikkoaamuna ympäri Eurooppaa.
+Tokenized sentence: Os | ak | ke | et | Ġhal | vent | u | iv | at | Ġkes | k | ivi | ik | koa | am | una | Ġy | mp | Ã¤ | ri | ĠEuro | opp | aa | .
+
+Example sentence: Siitä täytyy myöskin pystyä irroittautumaan.
+Tokenized sentence: Si | itÃ¤ | ĠtÃ¤ | y | ty | y | Ġmy | Ã¶ | skin | Ġp | yst | y | Ã¤ | Ġir | ro | itt | aut | uma | an | .
+
+Example sentence: Kevin Ratcliffe (s. 12. marraskuuta 1960, Mancot, Wales) on walesilainen entinen jalkapalloilija.
+Tokenized sentence: Kevin | ĠRat | cliffe | Ġ( | s | . | Ġ | 12 | . | Ġm | arr | ask | u | uta | Ġ | 196 | 0 | , | ĠM | anc | ot | , | ĠWales | ) | Ġon | Ġw | ales | il | ainen | Ġent | inen | Ġj | alk | ap | allo | il | ija | .
+
+Example sentence: Hän on tehnyt yhteistyötä muiden muassa Zbigniew Namysłowskin ja Zbigniew Preisnerin kanssa.
+Tokenized sentence: H | Ã¤n | Ġon | Ġteh | ny | t | Ġy | hte | isty | Ã¶t | Ã¤ | Ġm | uid | en | Ġmu | assa | ĠZ | b | ign | iew | ĠNam | ys | ÅĤ | ows | kin | Ġja | ĠZ | b | ign | iew | ĠPreis | ner | in | Ġkans | sa | .
+
+Example sentence: Yleisesti voidaan todeta, että paikalliset identiteetit eivät ole kadonneet mihinkään liitosten myötä.
+Tokenized sentence: Y | le | is | esti | Ġvoid | aan | Ġtod | eta | , | ĠettÃ¤ | Ġpa | ik | all | iset | Ġident | ite | et | it | Ġe | iv | Ã¤t | Ġole | Ġkad | onne | et | Ġm | ih | ink | Ã¤Ã¤n | Ġli | it | osten | Ġmy | Ã¶t | Ã¤ | .
+
+Most common tokens: [('Ã¤', 18396), ('.', 10778), (',', 8668), ('in', 6435), ('an', 5527), ('Ġja', 4665), ('en', 4637), ('a', 3868), ('Ġk', 3534), ('i', 3448)]
+Expected tokens per word: 2.8368025059116175
+========= Language Skolt Sami =========
+Example sentence: Tõt nijdd ǩeeʹrjti ǩeeʹrj taaurõššʼses.
+Tokenized sentence: T | Ãµ | t | Ġn | ij | dd | Ġ | Ç | © | ee | Ê | ¹ | r | j | ti | Ġ | Ç | © | ee | Ê | ¹ | r | j | Ġta | aur | Ãµ | Å¡ | Å¡ | Ê | ¼ | ses | .
+
+Most common tokens: [('Ê', 34), ('¹', 33), ('Ãµ', 29), ('Ã¢', 18), ('Ç', 17), ('.', 15), ('i', 12), ('Ã¤', 12), ('Ġ', 10), ('©', 9)]
+Expected tokens per word: 3.496732026143791
